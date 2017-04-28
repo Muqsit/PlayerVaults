@@ -36,10 +36,9 @@ class FetchInventoryTask extends AsyncTask{
     private $type;
     private $data;
     private $number;
-    private $spectating;
-    private $spectator;
+    private $viewer;
 
-    public function __construct(string $player, int $type, int $number, bool $spectating, string $spectator, $data){
+    public function __construct(string $player, int $type, int $number, string $viewer, $data){
         $this->player = (string) $player;
         if($type === Provider::MYSQL){
             $this->data = (array) $data;
@@ -48,37 +47,44 @@ class FetchInventoryTask extends AsyncTask{
         }
         $this->type = (int) $type;
         $this->number = (int) $number;
-        $this->spectating = (bool) $spectating;
-        $this->spectator = (string) $spectator;
+        $this->viewer = (string) $viewer;
     }
 
     public function onRun(){
         $data = [];
         switch($this->type){
             case Provider::YAML:
-                $data = yaml_parse_file($this->data)[$this->player][$this->number] ?? [];
+                if(!is_file($path = $this->data.$this->player.".yml")){
+                    $data = [];
+                    break;
+                }
+                $data = yaml_parse_file($path)[$this->number] ?? [];
                 if(!empty($data)){
                     $data = base64_decode($data);
                 }
                 break;
             case Provider::JSON:
-                $data = json_decode(file_get_contents($this->data), true)[$this->player][$this->number] ?? [];
+                if(!is_file($path = $this->data.$this->player.".json")){
+                    $data = [];
+                    break;
+                }
+                $data = json_decode(file_get_contents($path), true)[$this->number] ?? [];
                 if(!empty($data)){
                     $data = base64_decode($data);
                 }
                 break;
             case Provider::MYSQL:
-                $data = new \mysqli(...$this->data);
-                $query = $data->query("SELECT inventory FROM vaults WHERE player='$this->player' AND number=$this->number");
+                $mysql = new \mysqli(...$this->data);
+                $query = $mysql->query("SELECT inventory FROM vaults WHERE player='$this->player' AND number=$this->number");
                 if($query === false){
                     $data = [];
                 }else{
-                    $data = $query->fetch_assoc()["inventory"];
+                    $data = $mysql->fetch_assoc()["inventory"];
                     if(!empty($data)){
                         $data = base64_decode($data);
                     }
                 }
-                $query->close();
+                $mysql->close();
                 break;
         }
         if(empty($data)){
@@ -100,13 +106,9 @@ class FetchInventoryTask extends AsyncTask{
     }
 
     public function onCompletion(Server $server){
-        if($this->spectating){
-            $player = $server->getPlayerExact($this->spectator);
-        }else{
-            $player = $server->getPlayerExact($this->player);
-        }
+        $player = $server->getPlayerExact($this->viewer);
         if($player !== null){
-            $player->addWindow(PlayerVaults::getInstance()->getData()->get($player, $this->getResult(), $this->number, $this->spectating));
+            $player->addWindow(PlayerVaults::getInstance()->getData()->get($player, $this->getResult(), $this->number, $this->player));
         }
     }
 }

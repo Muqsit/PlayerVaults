@@ -54,13 +54,19 @@ class PlayerVaults extends PluginBase{
         if(!is_dir($this->getDataFolder())){
             @mkdir($this->getDataFolder());
         }
+        if(!is_dir($this->getDataFolder()."vaults")){
+            @mkdir($this->getDataFolder()."vaults");
+        }
         if(!is_file($path = $this->getDataFolder()."config.yml")){
             file_put_contents($path, $this->getResource("config.yml"));
         }
 
+        $this->updateConfig();
+
         $type = $this->getConfig()->get("provider", "json");
         $type = Provider::TYPE_FROM_STRING[strtolower($type)] ?? Provider::UNKNOWN;
         $this->mysqldata = array_values($this->getConfig()->get("mysql", []));
+        $this->maxvaults = $this->getConfig()->get("max-vaults", 25);
         if($type === Provider::MYSQL){
             $mysql = new \mysqli(...$this->mysqldata);
             $db = $this->mysqldata[3];
@@ -70,7 +76,16 @@ class PlayerVaults extends PluginBase{
         $this->data = new Provider($type);
 
         Tile::registerTile(Vault::class);
-        $this->getServer()->getPluginManager()->registerEvents(new EventHandler($this), $this);
+    }
+
+    private function updateConfig(){
+        $config = $this->getConfig();
+        foreach(yaml_parse_file($this->getFile()."resources/config.yml") as $key => $value){
+            if($config->get($key) === false){
+                $config->set($key, $value);
+            }
+        }
+        $config->save();
     }
 
     public function getData() : Provider{
@@ -81,17 +96,21 @@ class PlayerVaults extends PluginBase{
         return $this->mysqldata;
     }
 
+    public function getMaxVaults() : int{
+        return $this->maxvaults;
+    }
+
     public static function getInstance() : self{
         return self::$instance;
     }
 
     public function onCommand(CommandSender $sender, Command $cmd, $label, array $args){
-        if(isset($args[0]) && $args[0] !== "help"){
+        if(isset($args[0]) && $args[0] !== "help" && $args[0] !== ""){
             if(is_numeric($args[0])){
                 if(strpos($args[0], ".") !== false){
                     $sender->sendMessage(TF::RED."Please insert a valid number.");
-                }elseif($args[0] < 1 || $args[0] > 25){
-                    $sender->sendMessage(TF::YELLOW."Usage: ".TF::WHITE."/pv <1-25>");
+                }elseif($args[0] < 1 || $args[0] > $this->getMaxVaults()){
+                    $sender->sendMessage(TF::YELLOW."Usage: ".TF::WHITE."/pv <1-".$this->getMaxVaults().">");
                 }else{
                     if($sender->y + Provider::INVENTORY_HEIGHT > Level::Y_MAX){
                         $sender->sendMessage(TF::RED."Cannot open vault at this height. Please lower down to at least Y=".Level::Y_MAX - Provider::INVENTORY_HEIGHT);
@@ -115,8 +134,37 @@ class PlayerVaults extends PluginBase{
                                     $args[1] = $player->getLowerCaseName();
                                     $player = $player->getName();
                                 }
-                                $this->getData()->sendContents($args[1], $args[2] ?? 1, true, $sender->getName());
+                                $args[2] = $args[2] ?? 1;
+                                if(!is_numeric($args[2])){
+                                    $sender->sendMessage(TF::RED."Usage: /$cmd of <player> <1-".$this->getMaxVaults().">");
+                                    break;
+                                }
+                                $this->getData()->sendContents($args[1], $args[2] ?? 1, $sender->getName());
                                 $sender->sendMessage(TF::YELLOW."Opening vault ".TF::AQUA."#".($args[2] ?? 1)." of ".($player ?? $args[1])."...");
+                            }
+                            break;
+                        case "empty":
+                            if(!isset($args[1])){
+                                $sender->sendMessage(TF::RED."Usage: /$cmd empty <player> <number|all>");
+                            }else{
+                                if(($player = $this->getServer()->getPlayerExact($args[1])) !== null){
+                                    $args[1] = $player->getLowerCaseName();
+                                    $player = $player->getName();
+                                }
+                                if(!isset($args[2]) || ($args[2] != "all" && !is_numeric($args[2]))){
+                                    $sender->sendMessage(TF::RED."Usage: /$cmd empty <player> <number|all>");
+                                }else{
+                                    if((is_numeric($args[2]) && ($args[2] >= 1 || $args[2] <= $this->getMaxVaults())) || $args[2] == "all"){
+                                        $this->getData()->deleteVault(strtolower($player ?? $args[1]), $args[2] == "all" ? -1 : $args[2]);
+                                        if($args[2] == "all"){
+                                            $sender->sendMessage(TF::YELLOW."Deleted all vaults of ".($player ?? $args[1]).".");
+                                        }else{
+                                            $sender->sendMessage(TF::YELLOW."Deleted ".($player ?? $args[1])."'s vault #".$args[2].".");
+                                        }
+                                    }else{
+                                        $sender->sendMessage(TF::RED."Usage: /$cmd empty ".$args[1]." <1-".$this->getMaxVaults().">");
+                                    }
+                                }
                             }
                             break;
                     }
@@ -131,7 +179,8 @@ class PlayerVaults extends PluginBase{
                         break;
                     case "admin":
                         $sender->sendMessage(implode(TF::RESET.PHP_EOL, [
-                            TF::GREEN."/$cmd of <player> <number=1> - ".TF::YELLOW."Show <player>'s vault contents."
+                            TF::GREEN."/$cmd of <player> <number=1> - ".TF::YELLOW."Show <player>'s vault contents.",
+                            TF::GREEN."/$cmd empty <player> <number|all> - ".TF::YELLOW."Empty <player>'s vault #number or all their vaults."
                         ]));
                         break;
                 }
