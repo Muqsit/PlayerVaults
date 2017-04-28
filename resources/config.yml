@@ -1,0 +1,19 @@
+---
+# The provider
+# Types: "mysql", "json", "yaml"
+provider: json
+
+# This is needed only if the provider is "mysql"
+mysql:
+  # IP address belonging to the mysql database
+  ip: 127.0.0.1
+  # Mysql user, avoid using "root" for safety precautions.
+  user: muqsit
+  # Password in plain text. Make sure you keep this file a secret.
+  pass: abcd123
+  # Database name to save vaults data in.
+  database: vaultdb
+  # Mysql database port, default: 3306
+  port: 3306
+  
+...
