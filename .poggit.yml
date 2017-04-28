@@ -1,0 +1,7 @@
+--- # Poggit-CI Manifest. Open the CI at https://poggit.pmmp.io/ci/Muqsit/PlayerVaults
+branches:
+- master
+projects:
+  PlayerVaults:
+    path: ""
+...
