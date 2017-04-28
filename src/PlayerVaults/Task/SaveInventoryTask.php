@@ -51,20 +51,22 @@ class SaveInventoryTask extends AsyncTask{
     public function onRun(){
         switch($this->type){
             case Provider::YAML:
-                $data = yaml_parse_file($this->data);
-                if(!isset($data[$this->player])){
-                    $data[$this->player] = [];
+                if(is_file($path = $this->data.$this->player.".yml")){
+                    $data = yaml_parse_file($path);
+                }else{
+                    $data = [];
                 }
-                $data[$this->player][$this->number] = $this->contents;
-                yaml_emit_file($data);
+                $data[$this->number] = $this->contents;
+                yaml_emit_file($path, $data);
                 break;
             case Provider::JSON:
-                $data = json_decode(file_get_contents($this->data), true);
-                if(!isset($data[$this->player])){
-                    $data[$this->player] = [];
+                if(is_file($path = $this->data.$this->player.".json")){
+                    $data = json_decode(file_get_contents($path), true);
+                }else{
+                    $data = [];
                 }
-                $data[$this->player][$this->number] = $this->contents;
-                file_put_contents($this->data, json_encode($data));
+                $data[$this->number] = $this->contents;
+                file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT));
                 break;
             case Provider::MYSQL:
                 $mysql = new \mysqli(...$this->data);
@@ -74,7 +76,7 @@ class SaveInventoryTask extends AsyncTask{
                 }else{
                     $mysql->query("UPDATE vaults SET inventory='$this->contents' WHERE player='$this->player' AND number=$this->number");
                 }
-                $query->close();
+                $mysql->close();
                 break;
         }
     }

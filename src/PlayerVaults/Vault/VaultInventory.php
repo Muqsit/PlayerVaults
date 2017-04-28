@@ -35,8 +35,8 @@ class VaultInventory extends ChestInventory{
     }
 
     public function onClose(Player $who){
-        if(isset($this->holder->namedtag["VaultNumber"])){
-            PlayerVaults::getInstance()->getData()->saveContents($who, $this->getContents(), $this->holder->namedtag["VaultNumber"]);
+        if(isset($this->getHolder()->namedtag->Vault)){
+            PlayerVaults::getInstance()->getData()->saveContents($this->getHolder(), $this->getContents());
         }
         $this->holder->sendReplacement($who);
         $this->holder->close();

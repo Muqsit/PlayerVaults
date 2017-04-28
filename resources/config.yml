@@ -15,5 +15,7 @@ mysql:
   database: vaultdb
   # Mysql database port, default: 3306
   port: 3306
-  
+
+# Max number of vaults that a player *may* have
+max-vaults: 25
 ...
