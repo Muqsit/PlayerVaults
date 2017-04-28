@@ -96,8 +96,12 @@ class PlayerVaults extends PluginBase{
                     if($sender->y + Provider::INVENTORY_HEIGHT > Level::Y_MAX){
                         $sender->sendMessage(TF::RED."Cannot open vault at this height. Please lower down to at least Y=".Level::Y_MAX - Provider::INVENTORY_HEIGHT);
                     }else{
-                        $sender->sendMessage(TF::YELLOW."Opening vault ".TF::AQUA."#".$args[0]."...");
-                        $this->getData()->sendContents($sender, $args[0]);
+                        if($sender->hasPermission("playervaults.vault.".$args[0])){
+                            $sender->sendMessage(TF::YELLOW."Opening vault ".TF::AQUA."#".$args[0]."...");
+                            $this->getData()->sendContents($sender, $args[0]);
+                        }else{
+                            $sender->sendMessage(TF::RED."You don't have permission to access vault #".$args[0]);
+                        }
                     }
                 }
             }else{

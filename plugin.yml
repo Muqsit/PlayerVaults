@@ -6,3 +6,6 @@ commands:
   playervault:
     default: true
     aliases: ["pv"]
+permissions:
+  playervaults.vault.1:
+    default: true
