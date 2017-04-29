@@ -52,10 +52,10 @@ class PlayerVaults extends PluginBase{
         ]));
 
         if(!is_dir($this->getDataFolder())){
-            @mkdir($this->getDataFolder());
+            mkdir($this->getDataFolder());
         }
         if(!is_dir($this->getDataFolder()."vaults")){
-            @mkdir($this->getDataFolder()."vaults");
+            mkdir($this->getDataFolder()."vaults");
         }
         if(!is_file($path = $this->getDataFolder()."config.yml")){
             file_put_contents($path, $this->getResource("config.yml"));
