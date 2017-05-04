@@ -26,7 +26,6 @@ namespace PlayerVaults\Task;
 use PlayerVaults\Provider;
 
 use pocketmine\scheduler\AsyncTask;
-use pocketmine\Server;
 
 class SaveInventoryTask extends AsyncTask{
 
@@ -79,8 +78,5 @@ class SaveInventoryTask extends AsyncTask{
                 $mysql->close();
                 break;
         }
-    }
-
-    public function onCompletion(Server $server){
     }
 }
