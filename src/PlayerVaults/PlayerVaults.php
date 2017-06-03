@@ -3,12 +3,12 @@
 *
 * Copyright (C) 2017 Muqsit Rayyan
 *
-*    ___ _                                        _ _       
-*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ 
+*    ___ _                                        _ _
+*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___
 *  / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|
 * / ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \
 * \/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/
-*                |___/                                      
+*                |___/
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Lesser General Public License as published by
@@ -80,7 +80,7 @@ class PlayerVaults extends PluginBase{
 
     private function updateConfig(){
         $config = $this->getConfig();
-        foreach(yaml_parse_file($this->getFile()."resources/config.yml") as $key => $value){
+        foreach(yaml_parse(stream_get_contents($this->getResource("config.yml"))) as $key => $value){
             if($config->get($key) === false){
                 $config->set($key, $value);
             }
