@@ -51,6 +51,7 @@ class Provider{
     private $data = [];
     private $server = null;
     private $type = Provider::JSON;
+    private $inventoryName = "";
 
     public function __construct(int $type){
         if($type === Provider::UNKNOWN){
@@ -61,6 +62,7 @@ class Provider{
 
         $core = PlayerVaults::getInstance();
         $this->server = $core->getServer();
+        $this->setInventoryName($core->getFromConfig("vaultinv-name") ?? "");
 
         if(is_file($oldfile = $core->getDataFolder()."vaults.json")){
             $data = json_decode(file_get_contents($oldfile));
@@ -89,10 +91,19 @@ class Provider{
                 $this->data = $core->getMysqlData();
                 break;
         }
+
     }
 
     private function getServer(){
         return $this->server;
+    }
+
+    private function getInventoryName(int $vaultno) : string{
+        return str_replace("{VAULTNO}", $vaultno, $this->inventoryName);
+    }
+
+    public function setInventoryName(string $name){
+        $this->inventoryName = $name;
     }
 
     public function sendContents($player, int $number = 1, string $viewer = null){
@@ -107,25 +118,26 @@ class Provider{
         if($vaultof === null){
             $vaultof = $player->getLowerCaseName();
         }
-        $nbt = new CompoundTag("", [
+        $tile = Tile::createTile("Vault", $level = $player->getLevel(), new CompoundTag("", [
             new StringTag("id", Tile::CHEST),
-            new IntTag("x", floor($player->x)),
-            new IntTag("y", floor($player->y) + Provider::INVENTORY_HEIGHT),
-            new IntTag("z", floor($player->z)),
+            new StringTag("CustomName", $this->getInventoryName($number)),
+            new IntTag("x", (int) $player->x),
+            new IntTag("y", (int) $player->y + Provider::INVENTORY_HEIGHT),
+            new IntTag("z", (int) $player->z),
             new ByteTag("Vault", 1),
             new IntTag("VaultNumber", $number),
             new StringTag("VaultOf", $vaultof)
-        ]);
-        $tile = Tile::createTile("Vault", $level = $player->getLevel(), $nbt);
+        ]));
 
         $block = Block::get(Block::CHEST);
-        $block->x = floor($tile->x);
-        $block->y = floor($tile->y);
-        $block->z = floor($tile->z);
+        $block->x = (int) $tile->x;
+        $block->y = (int) $tile->y;
+        $block->z = (int) $tile->z;
         $block->level = $level;
         $block->level->sendBlocks([$player], [$block]);
         $inventory = new VaultInventory($tile);
         $inventory->setContents($contents);
+        $tile->spawnTo($player);
         return $inventory;
     }
 

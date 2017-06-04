@@ -36,10 +36,11 @@ class PlayerVaults extends PluginBase{
     private $data = null;
     private $mysqldata = [];
     private static $instance = null;
+    private $parsedConfig = [];
 
     public function onEnable(){
         self::$instance = $this;
-        $this->getLogger()->notice(implode(TF::RESET.PHP_EOL.TF::AQUA, [
+        $this->getLogger()->notice(implode(TF::RESET.PHP_EOL.TF::YELLOW, [
             'Loaded PlayerVaults by Muqsit (Twitter: @muqsitrayyan)',
             '   ___ _                                        _ _       ',
             '  / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ ',
@@ -62,6 +63,7 @@ class PlayerVaults extends PluginBase{
         }
 
         $this->updateConfig();
+        $this->registerConfig();
 
         $type = $this->getConfig()->get("provider", "json");
         $type = Provider::TYPE_FROM_STRING[strtolower($type)] ?? Provider::UNKNOWN;
@@ -86,6 +88,14 @@ class PlayerVaults extends PluginBase{
             }
         }
         $config->save();
+    }
+
+    private function registerConfig(){
+        $this->parsedConfig = yaml_parse_file($this->getDataFolder()."config.yml");
+    }
+
+    public function getFromConfig($key){
+        return $this->parsedConfig[$key] ?? null;
     }
 
     public function getData() : Provider{

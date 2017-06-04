@@ -18,4 +18,8 @@ mysql:
 
 # Max number of vaults that a player *may* have
 max-vaults: 25
+
+# The name of the vault's inventory
+# {VAULTNO} -> The vault number
+vaultinv-name: "Vault #{VAULTNO}"
 ...
