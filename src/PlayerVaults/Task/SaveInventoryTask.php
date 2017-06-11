@@ -69,11 +69,22 @@ class SaveInventoryTask extends AsyncTask{
                 break;
             case Provider::MYSQL:
                 $mysql = new \mysqli(...$this->data);
-                $query = $mysql->query("SELECT player FROM vaults WHERE player='$this->player' AND number=$this->number");
-                if($query->num_rows === 0){
-                    $mysql->query("INSERT INTO vaults(player, inventory, number) VALUES('$this->player', '$this->contents', $this->number)");
+                $stmt = $mysql->prepare("SELECT player FROM vaults WHERE player=? AND number=?");
+                $stmt->bind_param("si", $this->player, $this->number);
+                $stmt->execute();
+                if(!$stmt->fetch()){
+var_dump("INSTR");
+                    $stmt->close();
+                    $stmt = $mysql->prepare("INSERT INTO vaults(player, inventory, number) VALUES(?, ?, ?)");
+                    $stmt->bind_param("ssi", $this->player, $this->contents, $this->number);
+                    $stmt->execute();
+                    $stmt->close();
                 }else{
-                    $mysql->query("UPDATE vaults SET inventory='$this->contents' WHERE player='$this->player' AND number=$this->number");
+                    $stmt->close();
+                    $stmt = $mysql->prepare("UPDATE vaults SET inventory=? WHERE player=? AND number=?");
+                    $stmt->bind_param("ssi", $this->contents, $this->player, $this->number);
+                    $stmt->execute();
+                    $stmt->close();
                 }
                 $mysql->close();
                 break;

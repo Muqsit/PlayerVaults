@@ -71,9 +71,15 @@ class DeleteVaultTask extends AsyncTask{
             case Provider::MYSQL:
                 $data = new \mysqli(...$this->data);
                 if($this->what === -1){
-                    $data->query("DELETE FROM vaults WHERE player='$this->player'");
+                    $stmt = $data->prepare("DELETE FROM vaults WHERE player=?");
+                    $stmt->bind_param("s", $this->player);
+                    $stmt->execute();
+                    $stmt->close();
                 }else{
-                    $data->query("DELETE FROM vaults WHERE player='$this->player' AND number=$this->what");
+                    $stmt = $data->prepare("DELETE FROM vaults WHERE player=? AND number=?");
+                    $stmt->bind_param("si", $this->player, $this->number);
+                    $stmt->execute();
+                    $stmt->close();
                 }
                 $data->close();
                 break;

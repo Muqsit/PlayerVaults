@@ -75,15 +75,18 @@ class FetchInventoryTask extends AsyncTask{
                 break;
             case Provider::MYSQL:
                 $mysql = new \mysqli(...$this->data);
-                $query = $mysql->query("SELECT inventory FROM vaults WHERE player='$this->player' AND number=$this->number");
-                if($query === false){
+                $stmt = $mysql->prepare("SELECT inventory FROM vaults WHERE player=? AND number=?");
+                $stmt->bind_param("si", $this->player, $this->number);
+                $stmt->bind_result($data);
+                $stmt->execute();
+                if(!$stmt->fetch()){
                     $data = [];
                 }else{
-                    $data = $mysql->fetch_assoc()["inventory"];
                     if(!empty($data)){
                         $data = base64_decode($data);
                     }
                 }
+                $stmt->close();
                 $mysql->close();
                 break;
         }
