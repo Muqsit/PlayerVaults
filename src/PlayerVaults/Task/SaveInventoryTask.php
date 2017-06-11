@@ -73,7 +73,6 @@ class SaveInventoryTask extends AsyncTask{
                 $stmt->bind_param("si", $this->player, $this->number);
                 $stmt->execute();
                 if(!$stmt->fetch()){
-var_dump("INSTR");
                     $stmt->close();
                     $stmt = $mysql->prepare("INSERT INTO vaults(player, inventory, number) VALUES(?, ?, ?)");
                     $stmt->bind_param("ssi", $this->player, $this->contents, $this->number);
