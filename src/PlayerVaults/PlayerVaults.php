@@ -114,7 +114,7 @@ class PlayerVaults extends PluginBase{
         return self::$instance;
     }
 
-    public function onCommand(CommandSender $sender, Command $cmd, $label, array $args){
+    public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool{
         if(isset($args[0]) && $args[0] !== "help" && $args[0] !== ""){
             if(is_numeric($args[0])){
                 if(strpos($args[0], ".") !== false){
