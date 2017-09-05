@@ -147,12 +147,12 @@ class PlayerVaults extends PluginBase{
                                 $args[2] = $args[2] ?? 1;
                                 if(!is_numeric($args[2])){
                                     $sender->sendMessage(TF::RED."Usage: /$cmd of <player> <1-".$this->getMaxVaults().">");
-                                    break;
+                                    return false;
                                 }
                                 $this->getData()->sendContents($args[1], $args[2] ?? 1, $sender->getName());
                                 $sender->sendMessage(TF::YELLOW."Opening vault ".TF::AQUA."#".($args[2] ?? 1)." of ".($player ?? $args[1])."...");
                             }
-                            break;
+                            return true;
                         case "empty":
                             if(!isset($args[1])){
                                 $sender->sendMessage(TF::RED."Usage: /$cmd empty <player> <number|all>");
@@ -176,7 +176,7 @@ class PlayerVaults extends PluginBase{
                                     }
                                 }
                             }
-                            break;
+                            return true;
                     }
                 }
                 switch(strtolower($args[0])){
@@ -186,13 +186,13 @@ class PlayerVaults extends PluginBase{
                             TF::GREEN."Twitter: ".TF::AQUA."@muqsitrayyan",
                             TF::GREEN."GitHub Repo: ".TF::DARK_PURPLE."http://github.com/Muqsit/PlayerVaults"
                         ]));
-                        break;
+                        return true;
                     case "admin":
                         $sender->sendMessage(implode(TF::RESET.PHP_EOL, [
                             TF::GREEN."/$cmd of <player> <number=1> - ".TF::YELLOW."Show <player>'s vault contents.",
                             TF::GREEN."/$cmd empty <player> <number|all> - ".TF::YELLOW."Empty <player>'s vault #number or all their vaults."
                         ]));
-                        break;
+                        return true;
                 }
             }
         }else{
@@ -204,5 +204,6 @@ class PlayerVaults extends PluginBase{
                 $sender->sendMessage(TF::RED."Use '/$cmd admin' for a list of admin commands.");
             }
         }
+        return false;
     }
 }
