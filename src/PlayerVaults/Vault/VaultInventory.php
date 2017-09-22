@@ -30,7 +30,7 @@ use pocketmine\Player;
 
 class VaultInventory extends ChestInventory{
 
-    public function onClose(Player $who){
+    public function onClose(Player $who): void{
         if(isset($this->getHolder()->namedtag->Vault)){
             PlayerVaults::getInstance()->getData()->saveContents($this->getHolder(), $this->getContents());
         }
