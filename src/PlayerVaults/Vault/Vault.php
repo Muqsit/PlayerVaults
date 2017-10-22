@@ -52,6 +52,6 @@ class Vault extends Chest{
         }
     }
 
-    public function addAdditionalSpawnData(CompoundTag $nbt){
+    public function addAdditionalSpawnData(CompoundTag $nbt) : void{
     }
 }
