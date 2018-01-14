@@ -23,34 +23,42 @@
 */
 namespace PlayerVaults\Task;
 
-use PlayerVaults\Provider;
+use PlayerVaults\{PlayerVaults, Provider};
 
 use pocketmine\scheduler\AsyncTask;
+use pocketmine\Server;
 
-class SaveInventoryTask extends AsyncTask{
+class SaveInventoryTask extends AsyncTask {
 
+    /** @var string */
     private $player;
+
+    /** @var int */
     private $type;
+
+    /** @var string */
     private $data;
+
+    /** @var string */
     private $contents;
+
+    /** @var int */
     private $number;
 
-    public function __construct(string $player, int $type, $data, int $number, string $contents){
-        $this->player = (string) $player;
-        if($type === Provider::MYSQL){
-            $this->data = (array) $data;
-        }else{
-            $this->data = (string) $data;
-        }
-        $this->type = (int) $type;
-        $this->contents = (string) $contents;
-        $this->number = (int) $number;
+    public function __construct(string $player, int $type, $data, int $number, string $contents)
+    {
+        $this->player = $player;
+        $this->data = serialize($data);
+        $this->type = $type;
+        $this->contents = $contents;
+        $this->number = $number;
     }
 
-    public function onRun(){
+    public function onRun() : void
+    {
         switch($this->type){
             case Provider::YAML:
-                if(is_file($path = $this->data.$this->player.".yml")){
+                if(is_file($path = unserialize($this->data).$this->player.".yml")){
                     $data = yaml_parse_file($path);
                 }else{
                     $data = [];
@@ -59,7 +67,7 @@ class SaveInventoryTask extends AsyncTask{
                 yaml_emit_file($path, $data);
                 break;
             case Provider::JSON:
-                if(is_file($path = $this->data.$this->player.".json")){
+                if(is_file($path = unserialize($this->data).$this->player.".json")){
                     $data = json_decode(file_get_contents($path), true);
                 }else{
                     $data = [];
@@ -68,7 +76,7 @@ class SaveInventoryTask extends AsyncTask{
                 file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT));
                 break;
             case Provider::MYSQL:
-                $mysql = new \mysqli(...$this->data);
+                $mysql = new \mysqli(...unserialize($this->data));
                 $stmt = $mysql->prepare("SELECT player FROM vaults WHERE player=? AND number=?");
                 $stmt->bind_param("si", $this->player, $this->number);
                 $stmt->execute();
@@ -88,5 +96,10 @@ class SaveInventoryTask extends AsyncTask{
                 $mysql->close();
                 break;
         }
+    }
+
+    public function onCompletion(Server $server) : void
+    {
+        PlayerVaults::getInstance()->getData()->markAsProcessed($this->player, SaveInventoryTask::class);
     }
 }

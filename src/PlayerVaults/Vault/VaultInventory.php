@@ -28,13 +28,17 @@ use PlayerVaults\PlayerVaults;
 use pocketmine\inventory\{ChestInventory, InventoryType};
 use pocketmine\Player;
 
-class VaultInventory extends ChestInventory{
+class VaultInventory extends ChestInventory {
 
-    public function onClose(Player $who): void{
-        if(isset($this->getHolder()->namedtag->Vault)){
-            PlayerVaults::getInstance()->getData()->saveContents($this->getHolder(), $this->getContents());
+    public function onClose(Player $who) : void
+    {
+        $holder = $this->getHolder();
+
+        if(isset($holder->namedtag->Vault)){
+            PlayerVaults::getInstance()->getData()->saveContents($holder, $this->getContents());
         }
-        $this->holder->sendReplacement($who);
-        $this->holder->close();
+
+        $holder->sendReplacement($who);
+        $holder->close();
     }
 }

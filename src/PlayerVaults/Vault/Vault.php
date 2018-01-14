@@ -29,29 +29,29 @@ use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\Player;
 use pocketmine\tile\Chest;
 
-class Vault extends Chest{
+class Vault extends Chest {
 
-    public function __construct(Level $level, CompoundTag $nbt){
+    public function __construct(Level $level, CompoundTag $nbt)
+    {
         parent::__construct($level, $nbt);
-        $this->inventory = new VaultInventory($this);
-        $this->replacement = [$this->getBlock()->getId(), $this->getBlock()->getDamage()];
+        $block = $this->getBlock();
+        $this->replacement = [$block->getId(), $block->getDamage()];
     }
 
-    private function getReplacement() : Block{
-        return Block::get(...$this->replacement);
+    private function getReplacement() : Block
+    {
+        return Block::get($this->replacement[0], $this->replacement[1], $this);
     }
 
-    public function sendReplacement(Player $player){
+    public function sendReplacement(Player $player) : void
+    {
         $block = $this->getReplacement();
-        $block->x = (int) $this->x;
-        $block->y = (int) $this->y;
-        $block->z = (int) $this->z;
-        $block->level = $this->getLevel();
         if($block->level !== null){
             $block->level->sendBlocks([$player], [$block]);
         }
     }
 
-    public function addAdditionalSpawnData(CompoundTag $nbt) : void{
+    public function addAdditionalSpawnData(CompoundTag $nbt) : void
+    {
     }
 }

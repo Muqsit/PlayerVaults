@@ -27,34 +27,43 @@ use PlayerVaults\{PlayerVaults, Provider};
 
 use pocketmine\item\Item;
 use pocketmine\nbt\NetworkLittleEndianNBTStream;
+use pocketmine\nbt\tag\ListTag;
 use pocketmine\scheduler\AsyncTask;
 use pocketmine\Server;
 
-class FetchInventoryTask extends AsyncTask{
+class FetchInventoryTask extends AsyncTask {
 
+    /** @var string */
     private $player;
+
+    /** @var int */
     private $type;
+
+    /** @var array|string */
     private $data;
+
+    /** @var int */
     private $number;
+
+    /** @var string */
     private $viewer;
 
-    public function __construct(string $player, int $type, int $number, string $viewer, $data){
-        $this->player = (string) $player;
-        if($type === Provider::MYSQL){
-            $this->data = (array) $data;
-        }else{
-            $this->data = (string) $data;
-        }
-        $this->type = (int) $type;
-        $this->number = (int) $number;
-        $this->viewer = (string) $viewer;
+    public function __construct(string $player, int $type, int $number, string $viewer, $data)
+    {
+        $this->player = $player;
+        $this->data = serialize($data);
+        $this->type = $type;
+        $this->number = $number;
+        $this->viewer = $viewer;
     }
 
-    public function onRun(){
-        $data = [];
+    public function onRun() : void
+    {
+        $data = null;
+
         switch($this->type){
             case Provider::YAML:
-                if(!is_file($path = $this->data.$this->player.".yml")){
+                if(!is_file($path = unserialize($this->data).$this->player.".yml")){
                     $data = [];
                     break;
                 }
@@ -64,7 +73,7 @@ class FetchInventoryTask extends AsyncTask{
                 }
                 break;
             case Provider::JSON:
-                if(!is_file($path = $this->data.$this->player.".json")){
+                if(!is_file($path = unserialize($this->data).$this->player.".json")){
                     $data = [];
                     break;
                 }
@@ -74,13 +83,13 @@ class FetchInventoryTask extends AsyncTask{
                 }
                 break;
             case Provider::MYSQL:
-                $mysql = new \mysqli(...$this->data);
+                $mysql = new \mysqli(...unserialize($this->data));
                 $stmt = $mysql->prepare("SELECT inventory FROM vaults WHERE player=? AND number=?");
                 $stmt->bind_param("si", $this->player, $this->number);
                 $stmt->bind_result($data);
                 $stmt->execute();
                 if(!$stmt->fetch()){
-                    $data = [];
+                    $data = null;
                 }else{
                     if(!empty($data)){
                         $data = base64_decode($data);
@@ -90,28 +99,32 @@ class FetchInventoryTask extends AsyncTask{
                 $mysql->close();
                 break;
         }
-        if(empty($data)){
-            $this->setResult([]);
-        }else{
+        if($data !== null){
             $nbt = new NetworkLittleEndianNBTStream();
             $nbt->readCompressed($data);
             $nbt = $nbt->getData();
-            $items = $nbt->ItemList ?? [];
+            $items = $nbt->getListTag("ItemList") ?? new ListTag("ItemList");
             $contents = [];
-            if(!empty($items)){
+            if(count($items) > 0){
                 $items = $items->getValue();
                 foreach($items as $slot => $compoundTag){
-                    $contents[$slot] = Item::nbtDeserialize($compoundTag);
+                    $contents[$compoundTag["Slot"] ?? $slot] = Item::nbtDeserialize($compoundTag);
                 }
             }
             $this->setResult($contents);
+        }else{
+            $this->setResult([]);
         }
     }
 
-    public function onCompletion(Server $server){
+    public function onCompletion(Server $server) : void
+    {
         $player = $server->getPlayerExact($this->viewer);
         if($player !== null){
-            $player->addWindow(PlayerVaults::getInstance()->getData()->get($player, $this->getResult(), $this->number, $this->player));
+            $inventory = PlayerVaults::getInstance()->getData()->get($player, $this->getResult(), $this->number, $this->player);
+            if($inventory !== null){
+                $player->addWindow($inventory);
+            }
         }
     }
 }

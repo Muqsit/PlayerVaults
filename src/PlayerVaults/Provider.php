@@ -31,6 +31,7 @@ use pocketmine\nbt\NetworkLittleEndianNBTStream;
 use pocketmine\nbt\tag\{ByteTag, CompoundTag, IntTag, ListTag, StringTag};
 use pocketmine\Player;
 use pocketmine\tile\Tile;
+use pocketmine\utils\TextFormat as TF;
 
 class Provider{
 
@@ -48,12 +49,23 @@ class Provider{
     const MYSQL = 2;
     const UNKNOWN = 3;
 
-    private $data = [];
-    private $server = null;
+    /** @var array|string */
+    private $data;//data for provider
+
+    /** @var Server */
+    private $server;
+
+    /** @var int */
     private $type = Provider::JSON;
+
+    /** @var string */
     private $inventoryName = "";
 
-    public function __construct(int $type){
+    /** @var string[] */
+    private $processing = [];//the vaults that are being saved, for safety
+
+    public function __construct(int $type)
+    {
         if($type === Provider::UNKNOWN){
             throw new \Exception("Class constant '$type' does not exist. Switching to JSON.");
             $type = Provider::JSON;
@@ -94,30 +106,40 @@ class Provider{
 
     }
 
-    private function getServer(){
-        return $this->server;
+    public function markAsProcessed(string $player, string $hash) : void
+    {
+        if ($this->processing[$player] === $hash) {
+            unset($this->processing[$player]);
+        }
     }
 
-    private function getInventoryName(int $vaultno) : string{
+    private function getInventoryName(int $vaultno) : string
+    {
         return str_replace("{VAULTNO}", $vaultno, $this->inventoryName);
     }
 
-    public function setInventoryName(string $name){
+    public function setInventoryName(string $name) : void
+    {
         $this->inventoryName = $name;
     }
 
-    public function sendContents($player, int $number = 1, string $viewer = null){
-        $player = $player instanceof Player ? $player->getLowerCaseName() : strtolower($player);
-        if($viewer === null){
-            $viewer = $player;
-        }
-        $this->getServer()->getScheduler()->scheduleAsyncTask(new FetchInventoryTask($player, $this->type, $number, $viewer, $this->data));
+    public function sendContents($player, int $number = 1, ?string $viewer = null) : void
+    {
+        $name = $player instanceof Player ? $player->getLowerCaseName() : strtolower($player);
+        $this->server->getScheduler()->scheduleAsyncTask(new FetchInventoryTask($name, $this->type, $number, $viewer ?? $name, $this->data));
     }
 
-    public function get(Player $player, array $contents, int $number = 1, string $vaultof = null) : VaultInventory{
-        if($vaultof === null){
-            $vaultof = $player->getLowerCaseName();
+    public function get(Player $player, array $contents, int $number = 1, string $vaultof = null) : ?VaultInventory
+    {
+        $vaultof = $vaultof ?? $player->getLowerCaseName();
+
+        if(isset($this->processing[$vaultof])){
+            $player->sendMessage(TF::RED."You cannot open this vault as it is already in use by ".TF::GRAY.$this->processing[$vaultof].TF::RED.".");
+            return null;
         }
+
+        $this->processing[$vaultof] = $player->getLowerCaseName();
+
         $tile = Tile::createTile("Vault", $level = $player->getLevel(), new CompoundTag("", [
             new StringTag("id", Tile::CHEST),
             new StringTag("CustomName", $this->getInventoryName($number)),
@@ -129,36 +151,41 @@ class Provider{
             new StringTag("VaultOf", $vaultof)
         ]));
 
-        $block = Block::get(Block::CHEST);
-        $block->x = (int) $tile->x;
-        $block->y = (int) $tile->y;
-        $block->z = (int) $tile->z;
-        $block->level = $level;
+        $block = Block::get(Block::CHEST, 0, $tile);
         $block->level->sendBlocks([$player], [$block]);
+
+        //instead of sending $tile->getInventory() to the client, a new Inventory instance is created
+        //and sent to the client. This is to avoid the contents from the vault dropping when the tile block
+        //is broken by a client. This inventory is only accessible from and sent to the client.
         $inventory = new VaultInventory($tile);
         $inventory->setContents($contents);
-        $tile->spawnTo($player);
+
+        $tile->spawnTo($player);//required for custom name
         return $inventory;
     }
 
-    public function saveContents(Vault $tile, array $contents){
+    public function saveContents(Vault $tile, array $contents) : void
+    {
         $player = $tile->namedtag["VaultOf"];
 
-        foreach ($contents as &$item) {
-            $item = $item->nbtSerialize(-1, "Item");
+        foreach($contents as $slot => &$item){
+            $item = $item->nbtSerialize($slot, "Item");
         }
 
         $nbt = new NetworkLittleEndianNBTStream();
         $tag = new CompoundTag("Items", [
-            "ItemList" => new ListTag("ItemList", $contents)
+            new ListTag("ItemList", $contents)
         ]);
         $nbt->setData($tag);
-        $contents = base64_encode($nbt->writeCompressed(ZLIB_ENCODING_DEFLATE));
+        $contents = base64_encode($nbt->writeCompressed(ZLIB_ENCODING_DEFLATE));//maybe do compression in SaveInventoryTask?
 
-        $this->getServer()->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $tile->namedtag["VaultNumber"], $contents));
+        $this->processing[$player] = SaveInventoryTask::class;
+        $this->server->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $tile->namedtag["VaultNumber"], $contents));
     }
 
-    public function deleteVault(string $player, int $vault){
-        $this->getServer()->getScheduler()->scheduleAsyncTask(new DeleteVaultTask($player, $this->type, $vault, $this->data));
+    public function deleteVault(string $player, int $vault) : void
+    {
+        $this->processing[$player] = DeleteVaultTask::class;
+        $this->server->getScheduler()->scheduleAsyncTask(new DeleteVaultTask($player, $this->type, $vault, $this->data));
     }
 }
