@@ -27,7 +27,7 @@ use PlayerVaults\Task\{DeleteVaultTask, FetchInventoryTask, SaveInventoryTask};
 use PlayerVaults\Vault\{Vault, VaultInventory};
 
 use pocketmine\block\Block;
-use pocketmine\nbt\NBT;
+use pocketmine\nbt\NetworkLittleEndianNBTStream;
 use pocketmine\nbt\tag\{ByteTag, CompoundTag, IntTag, ListTag, StringTag};
 use pocketmine\Player;
 use pocketmine\tile\Tile;
@@ -148,7 +148,7 @@ class Provider{
             $item = $item->nbtSerialize(-1, "Item");
         }
 
-        $nbt = new NBT(NBT::BIG_ENDIAN);
+        $nbt = new NetworkLittleEndianNBTStream();
         $tag = new CompoundTag("Items", [
             "ItemList" => new ListTag("ItemList", $contents)
         ]);
