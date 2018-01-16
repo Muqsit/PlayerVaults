@@ -64,7 +64,7 @@ class FetchInventoryTask extends AsyncTask {
         switch($this->type){
             case Provider::YAML:
                 if(!is_file($path = unserialize($this->data).$this->player.".yml")){
-                    $data = [];
+                    $data = null;
                     break;
                 }
                 $data = yaml_parse_file($path)[$this->number] ?? [];
@@ -74,7 +74,7 @@ class FetchInventoryTask extends AsyncTask {
                 break;
             case Provider::JSON:
                 if(!is_file($path = unserialize($this->data).$this->player.".json")){
-                    $data = [];
+                    $data = null;
                     break;
                 }
                 $data = json_decode(file_get_contents($path), true)[$this->number] ?? [];
