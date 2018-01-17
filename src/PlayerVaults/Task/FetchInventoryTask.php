@@ -99,7 +99,7 @@ class FetchInventoryTask extends AsyncTask {
                 $mysql->close();
                 break;
         }
-        if($data !== null){
+        if(!empty($data)){
             $nbt = new NetworkLittleEndianNBTStream();
             $nbt->readCompressed($data);
             $nbt = $nbt->getData();
