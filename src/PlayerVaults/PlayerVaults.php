@@ -23,15 +23,16 @@
 */
 namespace PlayerVaults;
 
-use PlayerVaults\Vault\Vault;
-
 use pocketmine\command\{Command, CommandSender};
 use pocketmine\level\Level;
+use pocketmine\nbt\{BigEndianNBTStream, NetworkLittleEndianNBTStream};
 use pocketmine\plugin\PluginBase;
 use pocketmine\tile\Tile;
 use pocketmine\utils\TextFormat as TF;
 
 class PlayerVaults extends PluginBase {
+
+    const CONFIG_VERSION = 1.1;
 
     /** @var Provider */
     private $data;
@@ -80,19 +81,24 @@ class PlayerVaults extends PluginBase {
         if($type === Provider::MYSQL){
             $mysql = new \mysqli(...$this->mysqldata);
             $db = $this->mysqldata[3];
-            $mysql->query("CREATE TABLE IF NOT EXISTS vaults(player VARCHAR(16), inventory TEXT, number TINYINT)");
+            $mysql->query("CREATE TABLE IF NOT EXISTS playervaults(
+                player VARCHAR(16) NOT NULL,
+                number TINYINT NOT NULL,
+                inventory BLOB,
+                PRIMARY KEY(player, number)
+            )");
             $mysql->close();
         }
         $this->data = new Provider($type);
 
-        Tile::registerTile(Vault::class);
+        $this->checkConfigVersion();
     }
 
     private function updateConfig() : void
     {
         $config = $this->getConfig();
         foreach(yaml_parse(stream_get_contents($this->getResource("config.yml"))) as $key => $value){
-            if($config->get($key) === false){
+            if($key !== "version" && $config->get($key) === false){
                 $config->set($key, $value);
             }
         }
@@ -102,6 +108,87 @@ class PlayerVaults extends PluginBase {
     private function registerConfig() : void
     {
         $this->parsedConfig = yaml_parse_file($this->getDataFolder()."config.yml");
+    }
+
+    private function checkConfigVersion() : void
+    {
+        $oldVersion = $this->getConfig()->get("version", 1.0);
+        if ($oldVersion !== self::CONFIG_VERSION) {
+            $this->getLogger()->warning("Updating player vault config version, DO NOT stop the server...");
+            $this->doOldVersionChecks($oldVersion);
+            $this->getConfig()->set("version", self::CONFIG_VERSION);
+            $this->getConfig()->save();
+            $this->getLogger()->warning("Player vault config version updated successfully. The server can be safely stopped.");
+        }
+    }
+
+    private function doOldVersionChecks(float $version) : void
+    {
+        $logger = $this->getLogger();
+
+        switch ($version) {
+            case 1.0://migrate NetworkEndianNBTStream -> BigEndianNBTStream
+                switch ($type = $this->data->getType()) {
+                    case Provider::JSON:
+                    case Provider::YAML:
+                        rename($newdir = $this->getDataFolder().'vaults', $dir = $this->getDataFolder()."network-endian-vaults");
+                        mkdir($newdir);
+                        $oldreader = new NetworkLittleEndianNBTStream();
+                        $newreader = new BigEndianNBTStream();
+                        foreach(scandir($dir) as $file){
+                            if($type === Provider::JSON){
+                                $json = json_decode(file_get_contents($dir."/".$file), true);
+                                if(empty($json)){
+                                    continue;
+                                }
+                                $data = [];
+                                foreach ($json as $vaultNumber => $oldcdata) {
+                                    $oldreader->readCompressed(base64_decode($oldcdata));
+                                    $newreader->setData($oldreader->getData());
+                                    $data[$vaultNumber] = base64_encode($newreader->writeCompressed(ZLIB_ENCODING_DEFLATE));
+                                }
+                                $logger->info("Updated $file from NetworkEndianNBTStream to BigEndianNBTStream");
+                                file_put_contents($newdir."/".$file, json_encode($data));
+                            }elseif($type === Provider::YAML){
+                                $data = [];
+                                $yaml = yaml_parse_file($dir."/".$file, true);
+                                if(empty($yaml)){
+                                    continue;
+                                }
+                                foreach ($yaml as $vaultNumber => $oldcdata) {
+                                    $oldreader->readCompressed(base64_decode($oldcdata));
+                                    $newreader->setData($oldreader->getData());
+                                    $data[$vaultNumber] = base64_encode($newreader->writeCompressed(ZLIB_ENCODING_DEFLATE));
+                                }
+                                $logger->info("Updated $file from NetworkEndianNBTStream to BigEndianNBTStream");
+                                yaml_emit_file($newdir."/".$file, $data);
+                            }
+                        }
+                        return;
+                    case Provider::MYSQL:
+                        $mysql = new \mysqli(...$this->mysqldata);
+                        $db = $this->mysqldata[3];
+                        $query = $mysql->query("SELECT player, number, FROM_BASE64(inventory) FROM vaults");
+                        $oldreader = new NetworkLittleEndianNBTStream();
+                        $newreader = new BigEndianNBTStream();
+                        while($row = $query->fetch_array(MYSQLI_ASSOC)){
+                            $oldreader->readCompressed($row["inventory"]);
+                            $newreader->setData($oldreader->getData());
+                            $contents = $newreader->writeCompressed(ZLIB_ENCODING_DEFLATE);//no need to base64_encode this because mysql's sexy BLOB type is binary safe
+
+                            $stmt = $mysql->prepare("INSERT INTO playervaults(player, number, inventory) ON DUPLICATE KEY UPDATE inventory=VALUES(inventory)");
+                            $stmt->bind_param("sis", $row["player"], $row["number"], $contents);
+                            $stmt->execute();
+                            $stmt->close();
+                            $logger->info("Updated $file from NetworkEndianNBTStream to BigEndianNBTStream");
+                        }
+                        $query->close();
+                        $mysql->query("INSERT INTO playervaults SELECT player, number, FROM_BASE64(inventory) FROM vaults");
+                        $mysql->close();
+                        return;
+                }
+                return;
+        }
     }
 
     public function getFromConfig($key)

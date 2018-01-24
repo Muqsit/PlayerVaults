@@ -3,12 +3,12 @@
 *
 * Copyright (C) 2017 Muqsit Rayyan
 *
-*    ___ _                                        _ _       
-*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ 
+*    ___ _                                        _ _
+*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___
 *  / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|
 * / ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \
 * \/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/
-*                |___/                                      
+*                |___/
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Lesser General Public License as published by
@@ -24,11 +24,11 @@
 namespace PlayerVaults;
 
 use PlayerVaults\Task\{DeleteVaultTask, FetchInventoryTask, SaveInventoryTask};
-use PlayerVaults\Vault\{Vault, VaultInventory};
 
 use pocketmine\block\Block;
-use pocketmine\nbt\NetworkLittleEndianNBTStream;
-use pocketmine\nbt\tag\{ByteTag, CompoundTag, IntTag, ListTag, StringTag};
+use pocketmine\nbt\{BigEndianNBTStream, NetworkLittleEndianNBTStream};
+use pocketmine\nbt\tag\{CompoundTag, IntTag, ListTag, StringTag};
+use pocketmine\network\mcpe\protocol\BlockEntityDataPacket;
 use pocketmine\Player;
 use pocketmine\tile\Tile;
 use pocketmine\utils\TextFormat as TF;
@@ -106,6 +106,11 @@ class Provider{
 
     }
 
+    public function getType() : int
+    {
+        return $this->type;
+    }
+
     public function markAsProcessed(string $player, string $hash) : void
     {
         if ($this->processing[$player] === $hash) {
@@ -129,7 +134,7 @@ class Provider{
         $this->server->getScheduler()->scheduleAsyncTask(new FetchInventoryTask($name, $this->type, $number, $viewer ?? $name, $this->data));
     }
 
-    public function get(Player $player, array $contents, int $number = 1, string $vaultof = null) : ?VaultInventory
+    public function get(Player $player, array $contents, int $number = 1, ?string $vaultof = null) : ?VaultInventory
     {
         $vaultof = $vaultof ?? $player->getLowerCaseName();
 
@@ -140,47 +145,58 @@ class Provider{
 
         $this->processing[$vaultof] = $player->getLowerCaseName();
 
-        $tile = Tile::createTile("Vault", $level = $player->getLevel(), new CompoundTag("", [
-            new StringTag("id", Tile::CHEST),
-            new StringTag("CustomName", $this->getInventoryName($number)),
-            new IntTag("x", (int) $player->x),
-            new IntTag("y", (int) $player->y + Provider::INVENTORY_HEIGHT),
-            new IntTag("z", (int) $player->z),
-            new ByteTag("Vault", 1),
-            new IntTag("VaultNumber", $number),
-            new StringTag("VaultOf", $vaultof)
-        ]));
+        $pos = $player->asPosition();
+        //Position->floor() returns Vector3
+        $pos->x = (int) $pos->x;
+        $pos->z = (int) $pos->z;
+        $pos->y += Provider::INVENTORY_HEIGHT;
+        $pos->y = (int) $pos->y;
 
-        $block = Block::get(Block::CHEST, 0, $tile);
-        $block->level->sendBlocks([$player], [$block]);
+        $pos->level->sendBlocks([$player], [Block::get(Block::CHEST, 0, $pos)]);
 
-        //instead of sending $tile->getInventory() to the client, a new Inventory instance is created
-        //and sent to the client. This is to avoid the contents from the vault dropping when the tile block
-        //is broken by a client. This inventory is only accessible from and sent to the client.
-        $inventory = new VaultInventory($tile);
+        $inventory = new VaultInventory($pos, $vaultof, $number);
         $inventory->setContents($contents);
 
-        $tile->spawnTo($player);//required for custom name
+        $player->dataPacket($this->createVaultPacket($inventory, $this->getInventoryName($number)));
         return $inventory;
     }
 
-    public function saveContents(Vault $tile, array $contents) : void
+    private function createVaultPacket(VaultInventory $inventory, ?string $inventoryName = null) : BlockEntityDataPacket
     {
-        $player = $tile->namedtag["VaultOf"];
+        $pos = $inventory->getHolder();
 
-        foreach($contents as $slot => &$item){
-            $item = $item->nbtSerialize($slot, "Item");
+        $pk = new BlockEntityDataPacket();
+        $pk->x = $pos->x;
+        $pk->y = $pos->y;
+        $pk->z = $pos->z;
+
+        $tag = new CompoundTag("", [new StringTag("id", Tile::CHEST)]);
+        if($inventoryName !== null){
+            $tag->setString("CustomName", $inventoryName);
         }
 
-        $nbt = new NetworkLittleEndianNBTStream();
-        $tag = new CompoundTag("Items", [
-            new ListTag("ItemList", $contents)
-        ]);
-        $nbt->setData($tag);
-        $contents = base64_encode($nbt->writeCompressed(ZLIB_ENCODING_DEFLATE));//maybe do compression in SaveInventoryTask?
+        $nbtWriter = new NetworkLittleEndianNBTStream();
+        $nbtWriter->setData($tag);//we don't need to add x, y and z... it's only used for saving but we aren't saving vault tiles in the Level.
+        $pk->namedtag = $nbtWriter->write();
+
+        return $pk;
+    }
+
+    public function saveContents(VaultInventory $inventory) : void
+    {
+        $player = $inventory->getVaultOf();
+
+        $contents = $inventory->getContents();
+        foreach($contents as $slot => &$item){
+            $item = $item->nbtSerialize($slot);
+        }
+
+        $nbt = new BigEndianNBTStream();
+        $nbt->setData(new CompoundTag("Items", [new ListTag("ItemList", $contents)]));
+        $contents = $nbt->writeCompressed(ZLIB_ENCODING_DEFLATE);//maybe do compression in SaveInventoryTask?
 
         $this->processing[$player] = SaveInventoryTask::class;
-        $this->server->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $tile->namedtag["VaultNumber"], $contents));
+        $this->server->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $inventory->getNumber(), $contents));
     }
 
     public function deleteVault(string $player, int $vault) : void

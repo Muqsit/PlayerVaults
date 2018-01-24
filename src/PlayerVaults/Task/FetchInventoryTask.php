@@ -3,12 +3,12 @@
 *
 * Copyright (C) 2017 Muqsit Rayyan
 *
-*    ___ _                                        _ _       
-*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ 
+*    ___ _                                        _ _
+*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___
 *  / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|
 * / ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \
 * \/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/
-*                |___/                                      
+*                |___/
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Lesser General Public License as published by
@@ -26,7 +26,7 @@ namespace PlayerVaults\Task;
 use PlayerVaults\{PlayerVaults, Provider};
 
 use pocketmine\item\Item;
-use pocketmine\nbt\NetworkLittleEndianNBTStream;
+use pocketmine\nbt\BigEndianNBTStream;
 use pocketmine\nbt\tag\ListTag;
 use pocketmine\scheduler\AsyncTask;
 use pocketmine\Server;
@@ -67,47 +67,36 @@ class FetchInventoryTask extends AsyncTask {
                     $data = null;
                     break;
                 }
-                $data = yaml_parse_file($path)[$this->number] ?? [];
-                if(!empty($data)){
-                    $data = base64_decode($data);
-                }
+                $data = base64_decode(yaml_parse_file($path)[$this->number] ?? "");
                 break;
             case Provider::JSON:
                 if(!is_file($path = unserialize($this->data).$this->player.".json")){
                     $data = null;
                     break;
                 }
-                $data = json_decode(file_get_contents($path), true)[$this->number] ?? [];
-                if(!empty($data)){
-                    $data = base64_decode($data);
-                }
+                $data = base64_decode(json_decode(file_get_contents($path), true)[$this->number] ?? "");
                 break;
             case Provider::MYSQL:
                 $mysql = new \mysqli(...unserialize($this->data));
-                $stmt = $mysql->prepare("SELECT inventory FROM vaults WHERE player=? AND number=?");
+                $stmt = $mysql->prepare("SELECT inventory FROM playervaults WHERE player=? AND number=?");
                 $stmt->bind_param("si", $this->player, $this->number);
                 $stmt->bind_result($data);
                 $stmt->execute();
                 if(!$stmt->fetch()){
                     $data = null;
-                }else{
-                    if(!empty($data)){
-                        $data = base64_decode($data);
-                    }
                 }
                 $stmt->close();
                 $mysql->close();
                 break;
         }
         if(!empty($data)){
-            $nbt = new NetworkLittleEndianNBTStream();
+            $nbt = new BigEndianNBTStream();
             $nbt->readCompressed($data);
             $nbt = $nbt->getData();
             $items = $nbt->getListTag("ItemList") ?? new ListTag("ItemList");
             $contents = [];
             if(count($items) > 0){
-                $items = $items->getValue();
-                foreach($items as $slot => $compoundTag){
+                foreach($items->getValue() as $slot => $compoundTag){
                     $contents[$compoundTag["Slot"] ?? $slot] = Item::nbtDeserialize($compoundTag);
                 }
             }

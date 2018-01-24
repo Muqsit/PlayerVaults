@@ -22,4 +22,7 @@ max-vaults: 25
 # The name of the vault's inventory
 # {VAULTNO} -> The vault number
 vaultinv-name: "Vault #{VAULTNO}"
+
+# DO NOT MODIFY THIS!
+version: 1.1
 ...

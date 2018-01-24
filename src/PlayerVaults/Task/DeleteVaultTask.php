@@ -3,12 +3,12 @@
 *
 * Copyright (C) 2017 Muqsit Rayyan
 *
-*    ___ _                                        _ _       
-*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ 
+*    ___ _                                        _ _
+*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___
 *  / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|
 * / ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \
 * \/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/
-*                |___/                                      
+*                |___/
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Lesser General Public License as published by
@@ -80,10 +80,10 @@ class DeleteVaultTask extends AsyncTask {
                 $data = new \mysqli(...$data);
 
                 if($this->vaultNumber === -1){
-                    $stmt = $data->prepare("DELETE FROM vaults WHERE player=?");
+                    $stmt = $data->prepare("DELETE FROM playervaults WHERE player=?");
                     $stmt->bind_param("s", $this->player);
                 }else{
-                    $stmt = $data->prepare("DELETE FROM vaults WHERE player=? AND number=?");
+                    $stmt = $data->prepare("DELETE FROM playervaults WHERE player=? AND number=?");
                     $stmt->bind_param("si", $this->player, $this->vaultNumber);
                 }
                 $stmt->execute();

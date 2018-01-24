@@ -3,12 +3,12 @@
 *
 * Copyright (C) 2017 Muqsit Rayyan
 *
-*    ___ _                                        _ _       
-*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ 
+*    ___ _                                        _ _
+*   / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___
 *  / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|
 * / ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \
 * \/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/
-*                |___/                                      
+*                |___/
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Lesser General Public License as published by
@@ -63,36 +63,26 @@ class SaveInventoryTask extends AsyncTask {
                 }else{
                     $data = [];
                 }
-                $data[$this->number] = $this->contents;
+                $data[$this->number] = base64_encode($this->contents);
                 yaml_emit_file($path, $data);
                 break;
             case Provider::JSON:
                 if(is_file($path = unserialize($this->data).$this->player.".json")){
-                    $data = json_decode(file_get_contents($path), true);
+                    $data = json_decode(file_get_contents($path), true) ?? [];
                 }else{
                     $data = [];
                 }
-                $data[$this->number] = $this->contents;
-                file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT));
+                $data[$this->number] = base64_encode($this->contents);
+                file_put_contents($path, json_encode($data));
                 break;
             case Provider::MYSQL:
                 $mysql = new \mysqli(...unserialize($this->data));
-                $stmt = $mysql->prepare("SELECT player FROM vaults WHERE player=? AND number=?");
-                $stmt->bind_param("si", $this->player, $this->number);
+
+                $stmt = $mysql->prepare("INSERT INTO playervaults(player, number, inventory) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE inventory=VALUES(inventory)");
+                $stmt->bind_param("sis", $this->player, $this->number, $this->contents);
                 $stmt->execute();
-                if(!$stmt->fetch()){
-                    $stmt->close();
-                    $stmt = $mysql->prepare("INSERT INTO vaults(player, inventory, number) VALUES(?, ?, ?)");
-                    $stmt->bind_param("ssi", $this->player, $this->contents, $this->number);
-                    $stmt->execute();
-                    $stmt->close();
-                }else{
-                    $stmt->close();
-                    $stmt = $mysql->prepare("UPDATE vaults SET inventory=? WHERE player=? AND number=?");
-                    $stmt->bind_param("ssi", $this->contents, $this->player, $this->number);
-                    $stmt->execute();
-                    $stmt->close();
-                }
+                $stmt->close();
+
                 $mysql->close();
                 break;
         }
