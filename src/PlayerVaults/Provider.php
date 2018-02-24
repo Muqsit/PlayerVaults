@@ -23,6 +23,8 @@
 */
 namespace PlayerVaults;
 
+use muqsit\invmenu\InvMenu;
+
 use PlayerVaults\Task\{DeleteVaultTask, FetchInventoryTask, SaveInventoryTask};
 
 use pocketmine\block\Block;
@@ -49,6 +51,9 @@ class Provider{
     const MYSQL = 2;
     const UNKNOWN = 3;
 
+    /** @var BigEndianNBTStream */
+    private static $nbtWriter;
+
     /** @var array|string */
     private $data;//data for provider
 
@@ -63,6 +68,9 @@ class Provider{
 
     /** @var string[] */
     private $processing = [];//the vaults that are being saved, for safety
+
+    /** @var InvMenu */
+    private $menu;
 
     public function __construct(int $type)
     {
@@ -104,6 +112,9 @@ class Provider{
                 break;
         }
 
+        self::$nbtWriter = new BigEndianNBTStream();
+
+        $this->menu = InvMenu::create(InvMenu::TYPE_CUSTOM, VaultInventory::class)->sessionize();
     }
 
     public function getType() : int
@@ -134,52 +145,25 @@ class Provider{
         $this->server->getScheduler()->scheduleAsyncTask(new FetchInventoryTask($name, $this->type, $number, $viewer ?? $name, $this->data));
     }
 
-    public function get(Player $player, array $contents, int $number = 1, ?string $vaultof = null) : ?VaultInventory
+    /**
+     * @internal
+     */
+    public function send(Player $player, array $contents, int $number = 1, ?string $vaultof = null) : void
     {
         $vaultof = $vaultof ?? $player->getLowerCaseName();
 
         if(isset($this->processing[$vaultof])){
             $player->sendMessage(TF::RED."You cannot open this vault as it is already in use by ".TF::GRAY.$this->processing[$vaultof].TF::RED.".");
-            return null;
+            return;
         }
 
         $this->processing[$vaultof] = $player->getLowerCaseName();
 
-        $pos = $player->asPosition();
-        //Position->floor() returns Vector3
-        $pos->x = (int) $pos->x;
-        $pos->z = (int) $pos->z;
-        $pos->y += Provider::INVENTORY_HEIGHT;
-        $pos->y = (int) $pos->y;
-
-        $pos->level->sendBlocks([$player], [Block::get(Block::CHEST, 0, $pos)]);
-
-        $inventory = new VaultInventory($pos, $vaultof, $number);
+        $inventory = $this->menu->getInventory($player);
+        $inventory->setVaultData($vaultof, $number);
         $inventory->setContents($contents);
-
-        $player->dataPacket($this->createVaultPacket($inventory, $this->getInventoryName($number)));
-        return $inventory;
-    }
-
-    private function createVaultPacket(VaultInventory $inventory, ?string $inventoryName = null) : BlockEntityDataPacket
-    {
-        $pos = $inventory->getHolder();
-
-        $pk = new BlockEntityDataPacket();
-        $pk->x = $pos->x;
-        $pk->y = $pos->y;
-        $pk->z = $pos->z;
-
-        $tag = new CompoundTag("", [new StringTag("id", Tile::CHEST)]);
-        if($inventoryName !== null){
-            $tag->setString("CustomName", $inventoryName);
-        }
-
-        $nbtWriter = new NetworkLittleEndianNBTStream();
-        $nbtWriter->setData($tag);//we don't need to add x, y and z... it's only used for saving but we aren't saving vault tiles in the Level.
-        $pk->namedtag = $nbtWriter->write();
-
-        return $pk;
+        $this->menu->setName($this->getInventoryName($number));
+        $this->menu->send($player);
     }
 
     public function saveContents(VaultInventory $inventory) : void
@@ -191,9 +175,7 @@ class Provider{
             $item = $item->nbtSerialize($slot);
         }
 
-        $nbt = new BigEndianNBTStream();
-        $nbt->setData(new CompoundTag("Items", [new ListTag("ItemList", $contents)]));
-        $contents = $nbt->writeCompressed(ZLIB_ENCODING_DEFLATE);//maybe do compression in SaveInventoryTask?
+        $contents = self::$nbtWriter->writeCompressed(new CompoundTag("Items", [new ListTag("ItemList", $contents)]));//maybe do compression in SaveInventoryTask?
 
         $this->processing[$player] = SaveInventoryTask::class;
         $this->server->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $inventory->getNumber(), $contents));

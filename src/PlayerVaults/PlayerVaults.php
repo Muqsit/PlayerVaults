@@ -23,6 +23,8 @@
 */
 namespace PlayerVaults;
 
+use muqsit\invmenu\InvMenu;
+
 use pocketmine\command\{Command, CommandSender};
 use pocketmine\level\Level;
 use pocketmine\nbt\{BigEndianNBTStream, NetworkLittleEndianNBTStream};
@@ -49,17 +51,12 @@ class PlayerVaults extends PluginBase {
     public function onEnable() : void
     {
         self::$instance = $this;
-        $this->getLogger()->notice(implode(TF::RESET.PHP_EOL.TF::YELLOW, [
-            'Loaded PlayerVaults by Muqsit (Twitter: @muqsitrayyan)',
-            '   ___ _                                        _ _       ',
-            '  / _ \ | __ _ _   _  ___ _ __/\   /\__ _ _   _| | |_ ___ ',
-            ' / /_)/ |/ _" | | | |/ _ \ "__\ \ / / _" | | | | | __/ __|',
-            '/ ___/| | (_| | |_| |  __/ |   \ V / (_| | |_| | | |_\__ \ ',
-            '\/    |_|\__,_|\__, |\___|_|    \_/ \__,_|\__,_|_|\__|___/',
-            '               |___/                                      ',
-            ' ',
-            'GitHub: http://github.com/Muqsit/PlayerVaults'
-        ]));
+
+        if(!class_exists(InvMenu::class)){
+            $this->getLogger()->warning($this->getName()."depends upon 'InvMenu' virion for it's functioning. If you would still like to continue running ".$this->getName()." from source, install the DEVirion plugin and download InvMenu to the /virions folder. Alternatively, you can download the pre-compiled PlayerVaults .phar file from poggit and not worry about installing the dependencies separately.");
+            $this->getServer()->getPluginManager()->disablePlugin($this);
+            return;
+        }
 
         if(!is_dir($this->getDataFolder())){
             mkdir($this->getDataFolder());
@@ -89,8 +86,8 @@ class PlayerVaults extends PluginBase {
             )");
             $mysql->close();
         }
-        $this->data = new Provider($type);
 
+        $this->data = new Provider($type);
         $this->checkConfigVersion();
     }
 

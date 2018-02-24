@@ -90,9 +90,7 @@ class FetchInventoryTask extends AsyncTask {
                 break;
         }
         if(!empty($data)){
-            $nbt = new BigEndianNBTStream();
-            $nbt->readCompressed($data);
-            $nbt = $nbt->getData();
+            $nbt = (new BigEndianNBTStream())->readCompressed($data);
             $items = $nbt->getListTag("ItemList") ?? new ListTag("ItemList");
             $contents = [];
             if(count($items) > 0){
@@ -110,10 +108,7 @@ class FetchInventoryTask extends AsyncTask {
     {
         $player = $server->getPlayerExact($this->viewer);
         if($player !== null){
-            $inventory = PlayerVaults::getInstance()->getData()->get($player, $this->getResult(), $this->number, $this->player);
-            if($inventory !== null){
-                $player->addWindow($inventory);
-            }
+            PlayerVaults::getInstance()->getData()->send($player, $this->getResult(), $this->number, $this->player);
         }
     }
 }

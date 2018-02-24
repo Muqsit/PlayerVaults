@@ -23,16 +23,13 @@
 */
 namespace PlayerVaults;
 
+use muqsit\invmenu\inventories\DoubleChestInventory;
+
 use PlayerVaults\PlayerVaults;
 
-use pocketmine\inventory\ContainerInventory;
-use pocketmine\level\Position;
-use pocketmine\network\mcpe\protocol\types\WindowTypes;
 use pocketmine\Player;
 
-class VaultInventory extends ContainerInventory {
-
-    const INVENTORY_SIZE = 27;
+class VaultInventory extends DoubleChestInventory {
 
     /** @var string */
     protected $vaultof;
@@ -40,26 +37,15 @@ class VaultInventory extends ContainerInventory {
     /** @var int */
     protected $number;
 
-    public function __construct(Position $pos, string $vaultof, int $number, array $items = [])
+    public function setVaultData(string $vaultof, int $number)
     {
         $this->vaultof = $vaultof;
         $this->number = $number;
-        parent::__construct($pos, $items, self::INVENTORY_SIZE);
-    }
-
-    public function getNetworkType() : int
-    {
-        return WindowTypes::CONTAINER;
     }
 
     public function getName() : string
     {
         return "Vault";
-    }
-
-    public function getDefaultSize() : int
-    {
-        return self::INVENTORY_SIZE;
     }
 
     /**
@@ -86,12 +72,6 @@ class VaultInventory extends ContainerInventory {
     public function onClose(Player $who) : void
     {
         PlayerVaults::getInstance()->getData()->saveContents($this);
-        $this->sendRealBlocks($who);
-    }
-
-    private function sendRealBlocks(Player ...$players) : void
-    {
-        $holder = $this->getHolder();
-        $holder->getLevel()->sendBlocks($players, [$holder->getLevel()->getBlockAt($holder->x, $holder->y, $holder->z)]);
+        parent::onClose($who);
     }
 }
