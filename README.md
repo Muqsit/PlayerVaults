@@ -1,7 +1,7 @@
 # PlayerVaults
-Per-player inventory-based vaults plugin for PocketMine-MP
+[![](https://poggit.pmmp.io/shield.dl.total/PlayerVaults)](https://poggit.pmmp.io/p/PlayerVaults)
 
-You may download the **phar file** [here](https://poggit.pmmp.io/p/PlayerVaults).
+Per-player inventory-based vaults plugin for PocketMine-MP
 
 PlayerVaults is a plugin that allows players on your server to have another online inventory. It works like ender chest inventories EXCEPT you can view your vault inventory anywhere you want.
 
