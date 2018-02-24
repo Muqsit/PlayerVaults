@@ -111,7 +111,9 @@ class Provider{
 
         self::$nbtWriter = new BigEndianNBTStream();
 
-        $this->menu = InvMenu::create(InvMenu::TYPE_CUSTOM, VaultInventory::class)->sessionize();
+        $this->menu = InvMenu::create(InvMenu::TYPE_CUSTOM, VaultInventory::class)
+            ->sessionize()
+            ->setInventoryCloseListener([$this, "saveContents"]);
     }
 
     public function getType() : int
@@ -163,8 +165,9 @@ class Provider{
         $this->menu->send($player);
     }
 
-    public function saveContents(VaultInventory $inventory) : void
+    public function saveContents(Player $viewer, VaultInventory $inventory) : void
     {
+        //TODO: Allow one viewer process too happen at a time too, just like one VaultInventory::getVaultOf() process.
         $player = $inventory->getVaultOf();
 
         $contents = $inventory->getContents();

@@ -23,7 +23,7 @@
 */
 namespace PlayerVaults;
 
-use muqsit\invmenu\InvMenu;
+use muqsit\invmenu\{InvMenu, InvMenuHandler};
 
 use pocketmine\command\{Command, CommandSender};
 use pocketmine\level\Level;
@@ -56,6 +56,10 @@ class PlayerVaults extends PluginBase {
             $this->getLogger()->warning($this->getName()." depends upon 'InvMenu' virion for it's functioning. If you would still like to continue running ".$this->getName()." from source, install the DEVirion plugin and download InvMenu to the /virions folder. Alternatively, you can download the pre-compiled PlayerVaults .phar file from poggit and not worry about installing the dependencies separately.");
             $this->getServer()->getPluginManager()->disablePlugin($this);
             return;
+        }
+
+        if(!InvMenuHandler::isRegistered()){
+            InvMenuHandler::register($this);
         }
 
         if(!is_dir($this->getDataFolder())){

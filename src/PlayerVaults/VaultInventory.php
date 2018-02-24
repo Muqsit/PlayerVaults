@@ -25,10 +25,6 @@ namespace PlayerVaults;
 
 use muqsit\invmenu\inventories\DoubleChestInventory;
 
-use PlayerVaults\PlayerVaults;
-
-use pocketmine\Player;
-
 class VaultInventory extends DoubleChestInventory {
 
     /** @var string */
@@ -67,11 +63,5 @@ class VaultInventory extends DoubleChestInventory {
     public function getNumber() : int
     {
         return $this->number;
-    }
-
-    public function onClose(Player $who) : void
-    {
-        PlayerVaults::getInstance()->getData()->saveContents($this);
-        parent::onClose($who);
     }
 }
