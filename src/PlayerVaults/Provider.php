@@ -27,12 +27,9 @@ use muqsit\invmenu\InvMenu;
 
 use PlayerVaults\Task\{DeleteVaultTask, FetchInventoryTask, SaveInventoryTask};
 
-use pocketmine\block\Block;
-use pocketmine\nbt\{BigEndianNBTStream, NetworkLittleEndianNBTStream};
-use pocketmine\nbt\tag\{CompoundTag, IntTag, ListTag, StringTag};
-use pocketmine\network\mcpe\protocol\BlockEntityDataPacket;
+use pocketmine\nbt\BigEndianNBTStream;
+use pocketmine\nbt\tag\{CompoundTag, ListTag};
 use pocketmine\Player;
-use pocketmine\tile\Tile;
 use pocketmine\utils\TextFormat as TF;
 
 class Provider{
