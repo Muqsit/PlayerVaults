@@ -95,7 +95,7 @@ class FetchInventoryTask extends AsyncTask {
             $contents = [];
             if(count($items) > 0){
                 foreach($items->getValue() as $slot => $compoundTag){
-                    $contents[$compoundTag["Slot"] ?? $slot] = Item::nbtDeserialize($compoundTag);
+                    $contents[$compoundTag->getByte("Slot", $slot)] = Item::nbtDeserialize($compoundTag);
                 }
             }
             $this->setResult($contents);
