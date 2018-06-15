@@ -1,6 +1,6 @@
 name: PlayerVaults
 main: PlayerVaults\PlayerVaults
-api: 3.0.0-ALPHA11
+api: 3.0.0-ALPHA12
 version: 2.0
 commands:
   playervault:
