@@ -141,7 +141,7 @@ class Provider{
     public function sendContents($player, int $number = 1, ?string $viewer = null) : void
     {
         $name = $player instanceof Player ? $player->getLowerCaseName() : strtolower($player);
-        $this->server->getScheduler()->scheduleAsyncTask(new FetchInventoryTask($name, $this->type, $number, $viewer ?? $name, $this->data));
+        $this->server->getAsyncPool()->submitTask(new FetchInventoryTask($name, $this->type, $number, $viewer ?? $name, $this->data));
     }
 
     /**
@@ -178,12 +178,12 @@ class Provider{
         $contents = self::$nbtWriter->writeCompressed(new CompoundTag("Items", [new ListTag("ItemList", $contents)]));//maybe do compression in SaveInventoryTask?
 
         $this->processing[$player] = SaveInventoryTask::class;
-        $this->server->getScheduler()->scheduleAsyncTask(new SaveInventoryTask($player, $this->type, $this->data, $inventory->getNumber(), $contents));
+        $this->server->getAsyncPool()->submitTask(new SaveInventoryTask($player, $this->type, $this->data, $inventory->getNumber(), $contents));
     }
 
     public function deleteVault(string $player, int $vault) : void
     {
         $this->processing[$player] = DeleteVaultTask::class;
-        $this->server->getScheduler()->scheduleAsyncTask(new DeleteVaultTask($player, $this->type, $vault, $this->data));
+        $this->server->getAsyncPool()->submitTask(new DeleteVaultTask($player, $this->type, $vault, $this->data));
     }
 }
