@@ -1,28 +1,24 @@
----
-# The provider
-# Types: "mysql", "json", "yaml"
-provider: json
-
-# This is needed only if the provider is "mysql"
-mysql:
-  # IP address belonging to the mysql database
-  ip: 127.0.0.1
-  # Mysql user, avoid using "root" for safety precautions.
-  user: muqsit
-  # Password in plain text. Make sure you keep this file a secret.
-  pass: abcd123
-  # Database name to save vaults data in.
-  database: vaultdb
-  # Mysql database port, default: 3306
-  port: 3306
-
-# Max number of vaults that a player *may* have
-max-vaults: 25
-
 # The name of the vault's inventory
-# {VAULTNO} -> The vault number
-vaultinv-name: "Vault #{VAULTNO}"
+# {PLAYER} -> The player name
+# {NUMBER} -> The vault number
+inventory-name: "Vault #{NUMBER}"
 
-# DO NOT MODIFY THIS!
-version: 1.1
-...
+database:
+  # The database type. "sqlite" and "mysql" are supported.
+  type: sqlite
+
+  # Edit these settings only if you choose "sqlite".
+  sqlite:
+    # The file name of the database in the plugin data folder.
+    # You can also put an absolute path here.
+    file: data.sqlite
+  # Edit these settings only if you choose "mysql".
+  mysql:
+    host: 127.0.0.1
+    # Avoid using the "root" user for security reasons.
+    username: root
+    password: ""
+    schema: your_schema
+  # The maximum number of simultaneous SQL queries
+  # Recommended: 1 for sqlite, 2 for MySQL. You may want to further increase this value if your MySQL connection is very slow.
+  worker-limit: 1
