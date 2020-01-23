@@ -6,7 +6,7 @@ projects:
     path: ""
     libs:
       - src: muqsit/InvMenu/InvMenu
-        version: ^2.1.0
+        version: ^3.0.0
       - src: poggit/libasynql/libasynql
         version: ^3.1.1
 ...

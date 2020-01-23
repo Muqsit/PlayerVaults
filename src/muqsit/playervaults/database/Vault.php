@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace muqsit\playervaults\database;
 
 use muqsit\invmenu\InvMenu;
-use muqsit\playervaults\inventory\VaultInventory;
 
+use muqsit\invmenu\SharedInvMenu;
+use pocketmine\inventory\Inventory;
 use pocketmine\item\Item;
 use pocketmine\nbt\BigEndianNBTStream;
 use pocketmine\nbt\tag\CompoundTag;
@@ -37,35 +38,25 @@ class Vault{
 	/** @var int */
 	private $number;
 
-	/** @var InvMenu */
+	/** @var SharedInvMenu */
 	private $menu;
 
-	/** @var callable */
-	private $on_garbage;
-
-	public function __construct(string $playername, int $number, callable $on_garbage){
+	public function __construct(Database $database, string $playername, int $number){
 		$this->playername = $playername;
 		$this->number = $number;
-		$this->on_garbage = $on_garbage;
 
-		$this->menu = InvMenu::create(VaultInventory::class);
-		$this->menu->getInventory()->setVaultData($this);
-		$this->menu->setListener([$this, "onInventoryTransaction"]);
-		$this->menu->setInventoryCloseListener([$this, "onInventoryClose"]);
-		$this->menu->setName(strtr(self::$name_format, [
-			"{PLAYER}" => $playername,
-			"{NUMBER}" => $number
-		]));
-	}
-
-	public function onInventoryTransaction(Player $player) : bool{
-		return strtolower($this->playername) === $player->getLowerCaseName() || $player->hasPermission("playervaults.others.edit");
-	}
-
-	public function onInventoryClose(Player $viewer, VaultInventory $inventory) : void{
-		if(empty(array_diff($inventory->getViewers(), [$viewer]))){
-			($this->on_garbage)();
-		}
+		$this->menu = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST)
+			->setListener(function(Player $player) : bool{ return strtolower($this->playername) === $player->getLowerCaseName() || $player->hasPermission("playervaults.others.edit"); })
+			->setInventoryCloseListener(function(Player $viewer, Inventory $inventory) use($database) : void{
+				$database->saveVault($this);
+				if(count(array_diff($inventory->getViewers(), [$viewer])) === 0){
+					$database->unloadVault($this);
+				}
+			})
+			->setName(strtr(self::$name_format, [
+				"{PLAYER}" => $playername,
+				"{NUMBER}" => $number
+			]));
 	}
 
 	public function getPlayerName() : string{
@@ -76,7 +67,7 @@ class Vault{
 		return $this->number;
 	}
 
-	public function getInventory() : VaultInventory{
+	public function getInventory() : Inventory{
 		return $this->menu->getInventory();
 	}
 
@@ -87,6 +78,7 @@ class Vault{
 	public function read(string $data) : void{
 		$contents = [];
 		$inventoryTag = self::$nbtSerializer->readCompressed($data)->getListTag(self::TAG_INVENTORY);
+		/** @var CompoundTag $tag */
 		foreach($inventoryTag as $tag){
 			$contents[$tag->getByte("Slot")] = Item::nbtDeserialize($tag);
 		}
