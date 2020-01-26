@@ -12,12 +12,16 @@ use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
+use pocketmine\utils\Config;
 use pocketmine\utils\TextFormat;
 
 class PlayerVaults extends PluginBase{
 
 	/** @var Database */
 	private $database;
+
+	/** @var PermissionManager */
+	private $permission_manager;
 
 	public function onEnable() : void{
 		$this->initVirions();
@@ -42,6 +46,9 @@ class PlayerVaults extends PluginBase{
 
 	private function loadConfiguration() : void{
 		Vault::setNameFormat((string) $this->getConfig()->get("inventory-name"));
+
+		$this->saveResource("permission-grouping.yml");
+		$this->permission_manager = new PermissionManager(new Config($this->getDataFolder() . "permission-grouping.yml", Config::YAML));
 	}
 
 	public function getDatabase() : Database{
@@ -67,7 +74,7 @@ class PlayerVaults extends PluginBase{
 						return false;
 					}
 				}else{
-					if(!$sender->hasPermission("playervaults.vault." . $number)){
+					if(!$this->permission_manager->hasPermission($sender, $number)){
 						$sender->sendMessage(TextFormat::RED . "You don't have permission to use vault #" . $number . ".");
 						return false;
 					}

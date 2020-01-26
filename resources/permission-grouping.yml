@@ -1,0 +1,18 @@
+# PlayerVaults v3.1.0
+
+# This feature aims to reduce the number of permissions being assigned to
+# each group/player.
+#
+# Example:
+# permissions:
+#   some.permission.here: 12
+#
+# The above permissions configuration will grant players that have the
+# permission "some.permission.here" access to all vaults from 1 to 12
+# (i.e: /pv 1, /pv 2, /pv 3, .../pv 12)
+
+# Whether to enable permission grouping
+enabled: false
+
+permissions:
+  playervaults.vault.vip: 10
