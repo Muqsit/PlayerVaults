@@ -24,7 +24,7 @@ final class PermissionManager{
 	public function registerGroup(string $permission, int $vaults) : void{
 		if(!isset($this->grouping[$vaults])){
 			$this->grouping[$vaults] = new Set();
-			ksort($this->grouping);
+			krsort($this->grouping);
 		}
 
 		$this->grouping[$vaults]->add($permission);
