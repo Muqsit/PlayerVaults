@@ -11,6 +11,7 @@ use muqsit\playervaults\database\utils\BinaryStringParserInstance;
 use muqsit\playervaults\PlayerVaults;
 
 use pocketmine\plugin\PluginLogger;
+use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
 
 class Database implements DatabaseStmts{
@@ -27,7 +28,7 @@ class Database implements DatabaseStmts{
 	/** @var PluginLogger */
 	private $logger;
 
-	/** @var libasynql */
+	/** @var DataConnector */
 	private $database;
 
 	/** @var BinaryStringParserInstance */
@@ -88,7 +89,9 @@ class Database implements DatabaseStmts{
 			"player" => strtolower($playername),
 			"number" => $number
 		], function(array $rows) use($playername, $number, $hash) : void{
-			$vault = new Vault($this, $playername, $number);
+			$vault = new Vault($playername, $number);
+			$vault->addInventoryCloseListener(function(Vault $vault) : void{ $this->saveVault($vault); });
+			$vault->addDisposeListener(function(Vault $vault) : void{ $this->unloadVault($vault); });
 			if(isset($rows[0])){
 				$vault->read($this->binary_string_parser->decode($rows[0]["data"]));
 			}
@@ -119,6 +122,19 @@ class Database implements DatabaseStmts{
 	}
 
 	public function close() : void{
+		foreach($this->loaded_vaults as $vault){
+			$inventory = $vault->getInventory();
+			foreach($inventory->getViewers() as $viewer){
+				$viewer->removeWindow($inventory);
+			}
+		}
+
+		foreach($this->loaded_vaults as $vault){
+			$this->saveVault($vault);
+			$this->unloadVault($vault);
+		}
+
+		$this->database->waitAll();
 		$this->database->close();
 	}
 }

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace muqsit\playervaults\database;
 
+use Closure;
 use muqsit\invmenu\InvMenu;
 
-use muqsit\invmenu\SharedInvMenu;
+use muqsit\invmenu\transaction\InvMenuTransaction;
+use muqsit\invmenu\transaction\InvMenuTransactionResult;
 use pocketmine\inventory\Inventory;
 use pocketmine\item\Item;
 use pocketmine\nbt\BigEndianNBTStream;
@@ -33,34 +35,67 @@ class Vault{
 	}
 
 	/** @var string */
-	private $playername;
+	private $player_name;
 
 	/** @var int */
 	private $number;
 
-	/** @var SharedInvMenu */
+	/** @var InvMenu */
 	private $menu;
 
-	public function __construct(Database $database, string $playername, int $number){
-		$this->playername = $playername;
+	/** @var Closure[] */
+	private $on_inventory_close = [];
+
+	/** @var Closure[] */
+	private $on_dispose = [];
+
+	public function __construct(string $player_name, int $number){
+		$this->player_name = $player_name;
 		$this->number = $number;
 
 		$this->menu = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST)
-			->setListener(function(Player $player) : bool{ return strtolower($this->playername) === $player->getLowerCaseName() || $player->hasPermission("playervaults.others.edit"); })
-			->setInventoryCloseListener(function(Player $viewer, Inventory $inventory) use($database) : void{
-				$database->saveVault($this);
+			->setListener(function(InvMenuTransaction $transaction) : InvMenuTransactionResult{
+				$player = $transaction->getPlayer();
+				return strtolower($this->player_name) === $player->getLowerCaseName() || $player->hasPermission("playervaults.others.edit") ?
+					$transaction->continue() :
+					$transaction->discard();
+			})
+			->setInventoryCloseListener(function(Player $viewer, Inventory $inventory) : void{
+				foreach($this->on_inventory_close as $callback){
+					$callback($this);
+				}
 				if(count(array_diff($inventory->getViewers(), [$viewer])) === 0){
-					$database->unloadVault($this);
+					foreach($this->on_dispose as $callback){
+						$callback($this);
+					}
 				}
 			})
 			->setName(strtr(self::$name_format, [
-				"{PLAYER}" => $playername,
+				"{PLAYER}" => $player_name,
 				"{NUMBER}" => $number
 			]));
 	}
 
+	/**
+	 * @param Closure $listener
+	 *
+	 * @phpstan-param Closure(Vault) : void $listener
+	 */
+	public function addInventoryCloseListener(Closure $listener) : void{
+		$this->on_inventory_close[spl_object_id($listener)] = $listener;
+	}
+
+	/**
+	 * @param Closure $listener
+	 *
+	 * @phpstan-param Closure(Vault) : void $listener
+	 */
+	public function addDisposeListener(Closure $listener) : void{
+		$this->on_dispose[spl_object_id($listener)] = $listener;
+	}
+
 	public function getPlayerName() : string{
-		return $this->playername;
+		return $this->player_name;
 	}
 
 	public function getNumber() : int{
