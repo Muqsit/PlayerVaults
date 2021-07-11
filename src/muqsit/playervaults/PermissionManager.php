@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace muqsit\playervaults;
 
-use Ds\Set;
 use pocketmine\Player;
 use pocketmine\utils\Config;
 
 final class PermissionManager{
 
-	/** @var Set<string>[] */
+	/** @var array<string, string>[] */
 	private $grouping = [];
 
 	public function __construct(Config $config){
@@ -23,11 +22,11 @@ final class PermissionManager{
 
 	public function registerGroup(string $permission, int $vaults) : void{
 		if(!isset($this->grouping[$vaults])){
-			$this->grouping[$vaults] = new Set();
+			$this->grouping[$vaults] = [];
 			krsort($this->grouping);
 		}
 
-		$this->grouping[$vaults]->add($permission);
+		$this->grouping[$vaults][$permission] = $permission;
 	}
 
 	public function hasPermission(Player $player, int $vault) : bool{

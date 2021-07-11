@@ -34,7 +34,7 @@ class Database implements DatabaseStmts{
 	/** @var BinaryStringParserInstance */
 	private $binary_string_parser;
 
-	/** @var Closure[] */
+	/** @var Closure[][] */
 	private $loading_vaults = [];
 
 	/** @var Vault[] */
