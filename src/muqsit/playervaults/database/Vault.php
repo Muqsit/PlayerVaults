@@ -68,6 +68,8 @@ class Vault{
 					foreach($this->on_dispose as $callback){
 						$callback($this);
 					}
+					$this->menu->setListener(InvMenu::readonly());
+					$this->menu->setInventoryCloseListener(null);
 				}
 			})
 			->setName(strtr(self::$name_format, [
