@@ -49,8 +49,6 @@ class Vault{
 	/** @var Closure[] */
 	private $on_dispose = [];
 
-	private $disposed = false;
-
 	public function __construct(string $player_name, int $number){
 		$this->player_name = $player_name;
 		$this->number = $number;
@@ -72,7 +70,6 @@ class Vault{
 					}
 					$this->menu->setListener(InvMenu::readonly());
 					$this->menu->setInventoryCloseListener(null);
-					$this->disposed = true;
 				}
 			})
 			->setName(strtr(self::$name_format, [
@@ -112,9 +109,7 @@ class Vault{
 	}
 
 	public function send(Player $player, ?string $custom_name = null) : void{
-		if(!$this->disposed){
-			$this->menu->send($player, $custom_name);
-		}
+		$this->menu->send($player, $custom_name);
 	}
 
 	public function read(string $data) : void{
