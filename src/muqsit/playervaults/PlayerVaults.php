@@ -84,6 +84,7 @@ class PlayerVaults extends PluginBase{
 
 				$this->getDatabase()->loadVault($player, $number, function(Vault $vault) use($sender) : void{
 					if($sender->isOnline()){
+						$sender->removeAllWindows();
 						$vault->send($sender);
 					}
 				});
