@@ -6,57 +6,51 @@ namespace muqsit\playervaults\database;
 
 use Closure;
 use muqsit\invmenu\InvMenu;
-
 use muqsit\invmenu\transaction\InvMenuTransaction;
 use muqsit\invmenu\transaction\InvMenuTransactionResult;
 use pocketmine\inventory\Inventory;
 use pocketmine\item\Item;
-use pocketmine\nbt\BigEndianNBTStream;
+use pocketmine\nbt\BigEndianNbtSerializer;
+use pocketmine\nbt\NBT;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\nbt\tag\ListTag;
-use pocketmine\Player;
+use pocketmine\nbt\TreeRoot;
+use pocketmine\player\Player;
+use function zlib_decode;
+use function zlib_encode;
+use const ZLIB_ENCODING_GZIP;
 
 class Vault{
 
 	private const TAG_INVENTORY = "Inventory";
 
-	/** @var BigEndianNBTStream */
-	private static $nbtSerializer;
-
-	/** @var string|null */
-	private static $name_format = null;
+	private static BigEndianNbtSerializer $nbtSerializer;
+	private static ?string $name_format = null;
 
 	public static function init() : void{
-		self::$nbtSerializer = new BigEndianNBTStream();
+		self::$nbtSerializer = new BigEndianNbtSerializer();
 	}
 
 	public static function setNameFormat(?string $format = null) : void{
 		self::$name_format = $format;
 	}
 
-	/** @var string */
-	private $player_name;
-
-	/** @var int */
-	private $number;
-
-	/** @var InvMenu */
-	private $menu;
+	private InvMenu $menu;
 
 	/** @var Closure[] */
-	private $on_inventory_close = [];
+	private array $on_inventory_close = [];
 
 	/** @var Closure[] */
-	private $on_dispose = [];
+	private array $on_dispose = [];
 
-	public function __construct(string $player_name, int $number){
-		$this->player_name = $player_name;
-		$this->number = $number;
-
+	public function __construct(
+		private string $player_name,
+		private int $number
+	){
 		$this->menu = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST)
 			->setListener(function(InvMenuTransaction $transaction) : InvMenuTransactionResult{
 				$player = $transaction->getPlayer();
-				return strtolower($this->player_name) === $player->getLowerCaseName() || $player->hasPermission("playervaults.others.edit") ?
+				return strtolower($this->player_name) === strtolower($player->getName()) || $player->hasPermission("playervaults.others.edit") ?
 					$transaction->continue() :
 					$transaction->discard();
 			})
@@ -72,7 +66,7 @@ class Vault{
 					$this->menu->setInventoryCloseListener(null);
 				}
 			})
-			->setName(strtr(self::$name_format, [
+			->setName(self::$name_format === null ? null : strtr(self::$name_format, [
 				"{PLAYER}" => $player_name,
 				"{NUMBER}" => $number
 			]));
@@ -114,7 +108,7 @@ class Vault{
 
 	public function read(string $data) : void{
 		$contents = [];
-		$inventoryTag = self::$nbtSerializer->readCompressed($data)->getListTag(self::TAG_INVENTORY);
+		$inventoryTag = self::$nbtSerializer->read(zlib_decode($data))->mustGetCompoundTag()->getListTag(self::TAG_INVENTORY);
 		/** @var CompoundTag $tag */
 		foreach($inventoryTag as $tag){
 			$contents[$tag->getByte("Slot")] = Item::nbtDeserialize($tag);
@@ -129,10 +123,8 @@ class Vault{
 			$contents[] = $item->nbtSerialize($slot);
 		}
 
-		return self::$nbtSerializer->writeCompressed(
-			new CompoundTag("", [
-				new ListTag(self::TAG_INVENTORY, $contents)
-			])
-		);
+		return zlib_encode(self::$nbtSerializer->write(new TreeRoot(CompoundTag::create()
+			->setTag(self::TAG_INVENTORY, new ListTag($contents, NBT::TAG_Compound))
+		)), ZLIB_ENCODING_GZIP);
 	}
 }

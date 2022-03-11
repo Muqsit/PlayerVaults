@@ -6,11 +6,10 @@ namespace muqsit\playervaults\database;
 
 use Closure;
 use InvalidArgumentException;
+use Logger;
 use muqsit\playervaults\database\utils\BinaryStringParser;
 use muqsit\playervaults\database\utils\BinaryStringParserInstance;
 use muqsit\playervaults\PlayerVaults;
-
-use pocketmine\plugin\PluginLogger;
 use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
 
@@ -25,35 +24,26 @@ class Database implements DatabaseStmts{
 		return strtolower($playername) . "|" . $number;
 	}
 
-	/** @var PluginLogger */
-	private $logger;
-
-	/** @var DataConnector */
-	private $database;
-
-	/** @var BinaryStringParserInstance */
-	private $binary_string_parser;
+	private Logger $logger;
+	private DataConnector $database;
+	private BinaryStringParserInstance $binary_string_parser;
 
 	/** @var Closure[][] */
-	private $loading_vaults = [];
+	private array $loading_vaults = [];
 
 	/** @var Vault[] */
-	private $loaded_vaults = [];
+	private array $loaded_vaults = [];
 
+	/**
+	 * @param PlayerVaults $plugin
+	 * @param mixed[] $configuration
+	 *
+	 * @phpstan-param array{worker-limit?: int, type: string} $configuration
+	 */
 	public function __construct(PlayerVaults $plugin, array $configuration){
 		$this->logger = $plugin->getLogger();
 
 		Vault::init();
-
-		if(!is_dir($plugin->getDataFolder() . "psfs/")){
-			/** @noinspection MkdirRaceConditionInspection */
-			mkdir($plugin->getDataFolder() . "psfs/");
-		}
-
-		foreach(self::PSFS as $path){
-			$plugin->saveResource($path, true);
-		}
-
 		if(isset($configuration["worker-limit"]) && $configuration["worker-limit"] > 1){
 			throw new InvalidArgumentException($plugin->getName() . " does not support multi-threading. Change worker-limit to 1");
 		}
@@ -65,7 +55,7 @@ class Database implements DatabaseStmts{
 
 	private function init() : void{
 		foreach((new \ReflectionClass(DatabaseStmts::class))->getConstants() as $name => $stmt){
-			if(strpos($name, "INIT_") === 0){
+			if(str_starts_with($name, "INIT_")){
 				$this->database->executeGeneric($stmt);
 			}
 		}
@@ -125,7 +115,7 @@ class Database implements DatabaseStmts{
 		foreach($this->loaded_vaults as $vault){
 			$inventory = $vault->getInventory();
 			foreach($inventory->getViewers() as $viewer){
-				$viewer->removeWindow($inventory);
+				$viewer->removeCurrentWindow();
 			}
 		}
 

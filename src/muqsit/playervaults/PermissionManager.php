@@ -4,17 +4,29 @@ declare(strict_types=1);
 
 namespace muqsit\playervaults;
 
-use pocketmine\Player;
+use pocketmine\player\Player;
 use pocketmine\utils\Config;
+use RuntimeException;
+use function gettype;
+use function is_array;
 
 final class PermissionManager{
 
 	/** @var array<string, string>[] */
-	private $grouping = [];
+	private array $grouping = [];
 
 	public function __construct(Config $config){
 		if($config->get("enabled", false)){
-			foreach($config->get("permissions") as $permission => $vaults){
+			$permissions = $config->get("permissions");
+			if(!is_array($permissions)){
+				throw new RuntimeException("Permissions configuration must be an array, got " . gettype($permissions));
+			}
+
+			/**
+			 * @var string $permission
+			 * @var int $vaults
+			 */
+			foreach($permissions as $permission => $vaults){
 				$this->registerGroup($permission, $vaults);
 			}
 		}

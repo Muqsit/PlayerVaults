@@ -7,29 +7,29 @@ namespace muqsit\playervaults;
 use muqsit\invmenu\InvMenuHandler;
 use muqsit\playervaults\database\Database;
 use muqsit\playervaults\database\Vault;
-
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
-use pocketmine\Player;
+use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\utils\Config;
 use pocketmine\utils\TextFormat;
+use RuntimeException;
+use function gettype;
+use function is_array;
+use function is_string;
 
-class PlayerVaults extends PluginBase{
+final class PlayerVaults extends PluginBase{
 
-	/** @var Database */
-	private $database;
+	private Database $database;
+	private PermissionManager $permission_manager;
 
-	/** @var PermissionManager */
-	private $permission_manager;
-
-	public function onEnable() : void{
+	protected function onEnable() : void{
 		$this->initVirions();
 		$this->createDatabase();
 		$this->loadConfiguration();
 	}
 
-	public function onDisable() : void{
+	protected function onDisable() : void{
 		$this->getDatabase()->close();
 	}
 
@@ -41,11 +41,17 @@ class PlayerVaults extends PluginBase{
 
 	private function createDatabase() : void{
 		$this->saveDefaultConfig();
-		$this->database = new Database($this, $this->getConfig()->get("database"));
+
+		$database = $this->getConfig()->get("database");
+		if(!is_array($database)){
+			throw new RuntimeException("Database configuration must be an array, got " . gettype($database));
+		}
+		$this->database = new Database($this, $database);
 	}
 
 	private function loadConfiguration() : void{
-		Vault::setNameFormat((string) $this->getConfig()->get("inventory-name"));
+		$inventory_name = $this->getConfig()->get("inventory-name");
+		Vault::setNameFormat(is_string($inventory_name) ? $inventory_name : null);
 
 		$this->saveResource("permission-grouping.yml");
 		$this->permission_manager = new PermissionManager(new Config($this->getDataFolder() . "permission-grouping.yml", Config::YAML));
@@ -83,7 +89,7 @@ class PlayerVaults extends PluginBase{
 				$sender->sendMessage(TextFormat::GRAY . "Opening" . ($player === $sender->getName() ? "" : " " . $player . "'s") . " vault #" . $number . "...");
 
 				$this->getDatabase()->loadVault($player, $number, function(Vault $vault) use($sender) : void{
-					if($sender->isOnline()){
+					if($sender->isConnected()){
 						$vault->send($sender);
 					}
 				});
