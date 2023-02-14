@@ -71,6 +71,7 @@ use pocketmine\Server;
 $plugin = Server::getInstance()->getPluginManager()->getPlugin("PlayerVaults");
 $plugin->loadVault("Alex", 1, function(Vault $vault, VaultAccess $access) : void{
     $inventory = $vault->getInventory();
+    $item = $inventory->getItem(0); // item in first slot
     $inventory->addItem(VanillaItems::APPLE());
     $access->release(); // unloads vault and if necessary, saves vault
 });
