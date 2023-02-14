@@ -45,10 +45,10 @@ class Vault{
 	/** @var array<int, Closure(Vault) : void> */
 	private array $on_dispose = [];
 
-	/** @var array<int, VaultAccessor> */
+	/** @var array<int, VaultAccess> */
 	private array $accessors = [];
 
-	/** @var array<int, int> */
+	/** @var array<int, array<int, int>> */
 	private array $player_accessor_ids = [];
 
 	public bool $_changed = false;
@@ -68,8 +68,12 @@ class Vault{
 			})
 			->setInventoryCloseListener(function(Player $viewer, Inventory $inventory) : void{
 				$id = $viewer->getId();
-				$this->release($this->accessors[$this->player_accessor_ids[$id]]);
-				unset($this->player_accessor_ids[$id]);
+				if(isset($this->player_accessor_ids[$id])){
+					foreach($this->player_accessor_ids[$id] as $accessor_id){
+						$this->release($this->accessors[$accessor_id]);
+					}
+					unset($this->player_accessor_ids[$id]);
+				}
 			})
 			->setName(self::$name_format === null ? null : strtr(self::$name_format, [
 				"{PLAYER}" => $player_name,
@@ -99,16 +103,16 @@ class Vault{
 		return $this->menu->getInventory();
 	}
 
-	public function access() : VaultAccessor{
-		$accessor = new VaultAccessor($this);
+	public function access() : VaultAccess{
+		$accessor = new VaultAccess($this);
 		return $this->accessors[spl_object_id($accessor)] = $accessor;
 	}
 
 	/**
-	 * @param VaultAccessor $viewer
+	 * @param VaultAccess $viewer
 	 * @internal
 	 */
-	public function release(VaultAccessor $viewer) : void{
+	public function release(VaultAccess $viewer) : void{
 		if(isset($this->accessors[$id = spl_object_id($viewer)])){
 			$this->accessors[$id]->_destroy();
 			unset($this->accessors[$id]);
@@ -116,6 +120,11 @@ class Vault{
 				$this->dispose();
 			}
 		}
+	}
+
+	public function releaseAccessWithPlayer(Player $player, VaultAccess $access) : void{
+		$id = spl_object_id($access);
+		$this->player_accessor_ids[$player->getId()][$id] = $id;
 	}
 
 	private function dispose() : void{
@@ -136,18 +145,7 @@ class Vault{
 	 * @param (Closure(bool) : void)|null $callback
 	 */
 	public function send(Player $player, ?string $custom_name = null, ?Closure $callback = null) : void{
-		$access = $this->access();
-		$id = $player->getId();
-		$this->menu->send($player, $custom_name, function(bool $success) use($id, $access, $callback) : void{
-			if($success){
-				$this->player_accessor_ids[$id] = spl_object_id($access);
-			}else{
-				$access->release();
-			}
-			if($callback !== null){
-				$callback($success);
-			}
-		});
+		$this->menu->send($player, $custom_name, $callback);
 	}
 
 	/**

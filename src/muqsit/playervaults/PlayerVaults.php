@@ -8,6 +8,7 @@ use Closure;
 use muqsit\invmenu\InvMenuHandler;
 use muqsit\playervaults\database\Database;
 use muqsit\playervaults\vault\Vault;
+use muqsit\playervaults\vault\VaultAccess;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\player\Player;
@@ -68,7 +69,7 @@ final class PlayerVaults extends PluginBase{
 	 *
 	 * @param string $player
 	 * @param int $number
-	 * @param Closure(Vault) : void $callback
+	 * @param Closure(Vault, VaultAccess) : void $callback
 	 * @throws PlayerVaultsException
 	 */
 	public function loadVault(string $player, int $number, Closure $callback) : void{
@@ -116,15 +117,18 @@ final class PlayerVaults extends PluginBase{
 		$on_success ??= static function(Vault $vault) : void{};
 		$on_failure ??= static function(PlayerVaultsException $_) : void{ /* throw exception by default? */ };
 
-		$callback = function(Vault $vault) use($opener, $on_success, $on_failure) : void{
+		$callback = function(Vault $vault, VaultAccess $access) use($opener, $on_success, $on_failure) : void{
 			if(!$opener->isConnected()){
+				$access->release();
 				$on_failure(new PlayerVaultsException("Player is not connected", PlayerVaultsException::ERR_VIEWER_NOT_CONNECTED));
 				return;
 			}
-			$vault->send($opener, null, function(bool $success) use($vault, $on_success, $on_failure) : void{
+			$vault->send($opener, null, function(bool $success) use($opener, $vault, $access, $on_success, $on_failure) : void{
 				if($success){
+					$vault->releaseAccessWithPlayer($opener, $access);
 					$on_success($vault);
 				}else{
+					$access->release();
 					$on_failure(new PlayerVaultsException("Failed opening vault inventory", PlayerVaultsException::ERR_GENERIC));
 				}
 			});

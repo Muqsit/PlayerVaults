@@ -11,6 +11,7 @@ use muqsit\playervaults\database\utils\BinaryStringParser;
 use muqsit\playervaults\database\utils\BinaryStringParserInstance;
 use muqsit\playervaults\PlayerVaults;
 use muqsit\playervaults\vault\Vault;
+use muqsit\playervaults\vault\VaultAccess;
 use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
 
@@ -64,9 +65,15 @@ class Database implements DatabaseStmts{
 		$this->database->waitAll();
 	}
 
+	/**
+	 * @param string $playername
+	 * @param int $number
+	 * @param Closure(Vault, VaultAccess) : void $callback
+	 */
 	public function loadVault(string $playername, int $number, Closure $callback) : void{
 		if(isset($this->loaded_vaults[$hash = self::vaultHash($playername, $number)])){
-			$callback($this->loaded_vaults[$hash]);
+			$vault = $this->loaded_vaults[$hash];
+			$callback($vault, $vault->access());
 			return;
 		}
 
@@ -95,7 +102,7 @@ class Database implements DatabaseStmts{
 			$this->logger->debug("Loaded vault " . $vault->getPlayerName() . "#" . $vault->getNumber());
 
 			foreach($this->loading_vaults[$hash] as $callback){
-				$callback($vault);
+				$callback($vault, $vault->access());
 			}
 
 			unset($this->loading_vaults[$hash]);

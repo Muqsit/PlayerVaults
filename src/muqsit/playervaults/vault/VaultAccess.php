@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace muqsit\playervaults\vault;
 
-final class VaultAccessor{
+final class VaultAccess{
 
 	public function __construct(
 		/** @readonly */ public Vault $vault
