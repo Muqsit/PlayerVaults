@@ -102,8 +102,13 @@ class Vault{
 		return $this->menu->getInventory();
 	}
 
-	public function send(Player $player, ?string $custom_name = null) : void{
-		$this->menu->send($player, $custom_name);
+	/**
+	 * @param Player $player
+	 * @param string|null $custom_name
+	 * @param (Closure(bool) : void)|null $callback
+	 */
+	public function send(Player $player, ?string $custom_name = null, ?Closure $callback = null) : void{
+		$this->menu->send($player, $custom_name, $callback);
 	}
 
 	public function read(string $data) : void{
