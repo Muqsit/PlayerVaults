@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace muqsit\playervaults\database;
+namespace muqsit\playervaults\vault;
 
 use Closure;
 use muqsit\invmenu\InvMenu;
@@ -16,6 +16,10 @@ use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\nbt\tag\ListTag;
 use pocketmine\nbt\TreeRoot;
 use pocketmine\player\Player;
+use function count;
+use function spl_object_id;
+use function strtolower;
+use function strtr;
 use function zlib_decode;
 use function zlib_encode;
 use const ZLIB_ENCODING_GZIP;
@@ -36,12 +40,18 @@ class Vault{
 	}
 
 	private InvMenu $menu;
+	private VaultInventoryListener $inventory_listener;
 
-	/** @var Closure[] */
-	private array $on_inventory_close = [];
-
-	/** @var Closure[] */
+	/** @var array<int, Closure(Vault) : void> */
 	private array $on_dispose = [];
+
+	/** @var array<int, VaultAccessor> */
+	private array $accessors = [];
+
+	/** @var array<int, int> */
+	private array $player_accessor_ids = [];
+
+	public bool $_changed = false;
 
 	public function __construct(
 		private string $player_name,
@@ -50,41 +60,28 @@ class Vault{
 		$this->menu = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST)
 			->setListener(function(InvMenuTransaction $transaction) : InvMenuTransactionResult{
 				$player = $transaction->getPlayer();
-				return strtolower($this->player_name) === strtolower($player->getName()) || $player->hasPermission("playervaults.others.edit") ?
-					$transaction->continue() :
-					$transaction->discard();
+				if(strtolower($this->player_name) === strtolower($player->getName()) || $player->hasPermission("playervaults.others.edit")){
+					$this->_changed = true;
+					return $transaction->continue();
+				}
+				return $transaction->discard();
 			})
 			->setInventoryCloseListener(function(Player $viewer, Inventory $inventory) : void{
-				foreach($this->on_inventory_close as $callback){
-					$callback($this);
-				}
-				if(count(array_diff($inventory->getViewers(), [$viewer])) === 0){
-					foreach($this->on_dispose as $callback){
-						$callback($this);
-					}
-					$this->menu->setListener(InvMenu::readonly());
-					$this->menu->setInventoryCloseListener(null);
-				}
+				$id = $viewer->getId();
+				$this->release($this->accessors[$this->player_accessor_ids[$id]]);
+				unset($this->player_accessor_ids[$id]);
 			})
 			->setName(self::$name_format === null ? null : strtr(self::$name_format, [
 				"{PLAYER}" => $player_name,
 				"{NUMBER}" => $number
 			]));
+
+		$this->inventory_listener = new VaultInventoryListener($this);
+		$this->menu->getInventory()->getListeners()->add($this->inventory_listener);
 	}
 
 	/**
-	 * @param Closure $listener
-	 *
-	 * @phpstan-param Closure(Vault) : void $listener
-	 */
-	public function addInventoryCloseListener(Closure $listener) : void{
-		$this->on_inventory_close[spl_object_id($listener)] = $listener;
-	}
-
-	/**
-	 * @param Closure $listener
-	 *
-	 * @phpstan-param Closure(Vault) : void $listener
+	 * @param Closure(Vault) : void $listener
 	 */
 	public function addDisposeListener(Closure $listener) : void{
 		$this->on_dispose[spl_object_id($listener)] = $listener;
@@ -102,15 +99,61 @@ class Vault{
 		return $this->menu->getInventory();
 	}
 
+	public function access() : VaultAccessor{
+		$accessor = new VaultAccessor($this);
+		return $this->accessors[spl_object_id($accessor)] = $accessor;
+	}
+
+	/**
+	 * @param VaultAccessor $viewer
+	 * @internal
+	 */
+	public function release(VaultAccessor $viewer) : void{
+		if(isset($this->accessors[$id = spl_object_id($viewer)])){
+			$this->accessors[$id]->_destroy();
+			unset($this->accessors[$id]);
+			if(count($this->accessors) === 0){
+				$this->dispose();
+			}
+		}
+	}
+
+	private function dispose() : void{
+		foreach($this->on_dispose as $callback){
+			$callback($this);
+		}
+
+		$this->menu->setListener(InvMenu::readonly());
+		$this->menu->setInventoryCloseListener(null);
+
+		$this->menu->getInventory()->getListeners()->remove($this->inventory_listener);
+		$this->inventory_listener->destroy();
+	}
+
 	/**
 	 * @param Player $player
 	 * @param string|null $custom_name
 	 * @param (Closure(bool) : void)|null $callback
 	 */
 	public function send(Player $player, ?string $custom_name = null, ?Closure $callback = null) : void{
-		$this->menu->send($player, $custom_name, $callback);
+		$access = $this->access();
+		$id = $player->getId();
+		$this->menu->send($player, $custom_name, function(bool $success) use($id, $access, $callback) : void{
+			if($success){
+				$this->player_accessor_ids[$id] = spl_object_id($access);
+			}else{
+				$access->release();
+			}
+			if($callback !== null){
+				$callback($success);
+			}
+		});
 	}
 
+	/**
+	 * @param string $data
+	 * @internal
+	 */
 	public function read(string $data) : void{
 		$contents = [];
 		$inventoryTag = self::$nbtSerializer->read(zlib_decode($data))->mustGetCompoundTag()->getListTag(self::TAG_INVENTORY);
@@ -119,9 +162,17 @@ class Vault{
 			$contents[$tag->getByte("Slot")] = Item::nbtDeserialize($tag);
 		}
 
-		$this->menu->getInventory()->setContents($contents);
+		$inventory = $this->menu->getInventory();
+		$listeners = $inventory->getListeners();
+		$listeners->remove($this->inventory_listener);
+		$inventory->setContents($contents);
+		$listeners->add($this->inventory_listener);
 	}
 
+	/**
+	 * @return string
+	 * @internal
+	 */
 	public function write() : string{
 		$contents = [];
 		foreach($this->menu->getInventory()->getContents() as $slot => $item){

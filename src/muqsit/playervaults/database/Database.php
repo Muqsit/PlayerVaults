@@ -10,6 +10,7 @@ use Logger;
 use muqsit\playervaults\database\utils\BinaryStringParser;
 use muqsit\playervaults\database\utils\BinaryStringParserInstance;
 use muqsit\playervaults\PlayerVaults;
+use muqsit\playervaults\vault\Vault;
 use poggit\libasynql\DataConnector;
 use poggit\libasynql\libasynql;
 
@@ -80,8 +81,12 @@ class Database implements DatabaseStmts{
 			"number" => $number
 		], function(array $rows) use($playername, $number, $hash) : void{
 			$vault = new Vault($playername, $number);
-			$vault->addInventoryCloseListener(function(Vault $vault) : void{ $this->saveVault($vault); });
-			$vault->addDisposeListener(function(Vault $vault) : void{ $this->unloadVault($vault); });
+			$vault->addDisposeListener(function(Vault $vault) : void{
+				if($vault->_changed){
+					$this->saveVault($vault);
+				}
+				$this->unloadVault($vault);
+			});
 			if(isset($rows[0])){
 				$vault->read($this->binary_string_parser->decode($rows[0]["data"]));
 			}

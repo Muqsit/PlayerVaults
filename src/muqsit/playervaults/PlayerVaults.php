@@ -7,7 +7,7 @@ namespace muqsit\playervaults;
 use Closure;
 use muqsit\invmenu\InvMenuHandler;
 use muqsit\playervaults\database\Database;
-use muqsit\playervaults\database\Vault;
+use muqsit\playervaults\vault\Vault;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\player\Player;
