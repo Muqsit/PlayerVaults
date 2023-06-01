@@ -1,7 +1,7 @@
 name: PlayerVaults
 main: muqsit\playervaults\PlayerVaults
-api: 4.0.0
-version: 3.5.0
+api: 5.0.0
+version: 3.5.1
 commands:
   playervault:
     permission: playervaults.command

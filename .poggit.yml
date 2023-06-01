@@ -6,8 +6,9 @@ projects:
     path: ""
     libs:
       - src: muqsit/InvMenu/InvMenu
-        branch: "4.0"
-        version: ^4.4.1
+        branch: pm5
+        version: ^4.6.1
       - src: poggit/libasynql/libasynql
-        version: 4.1.0
+        branch: pm5
+        version: ^4.1.1
 ...
