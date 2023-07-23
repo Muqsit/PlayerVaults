@@ -194,8 +194,12 @@ final class PlayerVaults extends PluginBase{
 		}
 
 		$sender->sendMessage(TextFormat::GRAY . "Opening" . (strtolower($player) === strtolower($sender->getName()) ? "" : " {$player}'s") . " vault #{$number}...");
-		$this->openVault($sender, $player, $number, static function(Vault $_) : void{}, function(PlayerVaultsException $e) : void{
-			throw $e;
+		$uuid = $sender->getUniqueId();
+		$this->openVault($sender, $player, $number, static function(Vault $_) : void{}, function(PlayerVaultsException $e) use($uuid) : void{
+			$sender = $this->getServer()->getPlayerByUUID($uuid);
+			if($sender !== null){
+				$this->handlePlayerVaultsException($sender, $e);
+			}
 		});
 		return true;
 	}
